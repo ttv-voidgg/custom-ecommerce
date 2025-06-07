@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { useSearchParams } from "next/navigation"
 import Image from "next/image"
 import Link from "next/link"
-import { Heart, Search, Star, Grid, List } from "lucide-react"
+import { Search, Star, Grid, List } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -15,7 +15,8 @@ import { Label } from "@/components/ui/label"
 import { Slider } from "@/components/ui/slider"
 import { useAuth } from "@/hooks/use-auth"
 import { StoreHeader } from "@/components/store-header"
-import {AddToCartButton} from "@/components/add-to-cart-button";
+import { AddToWishlistButton } from "@/components/add-to-wishlist-button"
+import { AddToCartButton } from "@/components/add-to-cart-button"
 
 export default function ProductsPage() {
   const { user, isAdmin, logout } = useAuth()
@@ -30,8 +31,6 @@ export default function ProductsPage() {
   const [priceRange, setPriceRange] = useState([0, 5000])
   const [selectedCategories, setSelectedCategories] = useState<string[]>(category ? [category] : [])
   const [searchQuery, setSearchQuery] = useState("")
-  const [favorites, setFavorites] = useState<string[]>([])
-
   const categories = ["rings", "necklaces", "earrings", "bracelets", "watches"]
 
   useEffect(() => {
@@ -124,10 +123,6 @@ export default function ProductsPage() {
 
   const toggleCategory = (cat: string) => {
     setSelectedCategories((prev) => (prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat]))
-  }
-
-  const toggleFavorite = (productId: string) => {
-    setFavorites((prev) => (prev.includes(productId) ? prev.filter((id) => id !== productId) : [...prev, productId]))
   }
 
   return (
@@ -276,20 +271,15 @@ export default function ProductsPage() {
                                         viewMode === "list" ? "w-48 h-48" : "w-full h-64"
                                     }`}
                                 />
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="absolute top-4 right-4 bg-white/80 hover:bg-white"
+                                <div
+                                    className="absolute top-4 right-4"
                                     onClick={(e) => {
                                       e.preventDefault()
                                       e.stopPropagation()
-                                      toggleFavorite(product.id)
                                     }}
                                 >
-                                  <Heart
-                                      className={`h-4 w-4 ${favorites.includes(product.id) ? "fill-red-500 text-red-500" : "text-gray-600"}`}
-                                  />
-                                </Button>
+                                  <AddToWishlistButton productId={product.id} className="bg-white/80 hover:bg-white" />
+                                </div>
                               </div>
                             </Link>
 

@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { Heart } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -11,11 +10,11 @@ import { Input } from "@/components/ui/input"
 import { useAuth } from "@/hooks/use-auth"
 import { StoreHeader } from "@/components/store-header"
 import { AddToCartButton } from "@/components/add-to-cart-button"
+import { AddToWishlistButton } from "@/components/add-to-wishlist-button"
 
 export default function HomePage() {
   const { user, isAdmin } = useAuth()
   const [products, setProducts] = useState<any[]>([])
-  const [favorites, setFavorites] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -49,10 +48,6 @@ export default function HomePage() {
     } finally {
       setLoading(false)
     }
-  }
-
-  const toggleFavorite = (productId: string) => {
-    setFavorites((prev) => (prev.includes(productId) ? prev.filter((id) => id !== productId) : [...prev, productId]))
   }
 
   return (
@@ -184,20 +179,17 @@ export default function HomePage() {
 
                                 {/* Floating Action Buttons */}
                                 <div className="absolute top-4 right-4 flex flex-col space-y-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                                  <Button
-                                      variant="secondary"
-                                      size="icon"
-                                      className="bg-white/90 hover:bg-white shadow-lg"
+                                  <div
                                       onClick={(e) => {
                                         e.preventDefault()
                                         e.stopPropagation()
-                                        toggleFavorite(product.id)
                                       }}
                                   >
-                                    <Heart
-                                        className={`h-4 w-4 ${favorites.includes(product.id) ? "fill-red-500 text-red-500" : "text-gray-600"}`}
+                                    <AddToWishlistButton
+                                        productId={product.id}
+                                        className="bg-white/90 hover:bg-white shadow-lg"
                                     />
-                                  </Button>
+                                  </div>
                                   <div
                                       onClick={(e) => {
                                         e.preventDefault()
@@ -208,19 +200,19 @@ export default function HomePage() {
                                   </div>
                                 </div>
                               </div>
-                            </Link>
 
-                            {/* Minimal Product Info */}
-                            <div className="p-6 space-y-3">
-                              <div className="text-center">
-                                <h4 className="text-lg font-light text-gray-900 tracking-wide">
-                                  {product.name || "Jewelry Piece"}
-                                </h4>
-                                <p className="text-xl font-light text-gray-900 mt-2">
-                                  ${product.price?.toLocaleString() || "0"}
-                                </p>
+                              {/* Minimal Product Info */}
+                              <div className="p-6 space-y-3">
+                                <div className="text-center">
+                                  <h4 className="text-lg font-light text-gray-900 tracking-wide">
+                                    {product.name || "Jewelry Piece"}
+                                  </h4>
+                                  <p className="text-xl font-light text-gray-900 mt-2">
+                                    ${product.price?.toLocaleString() || "0"}
+                                  </p>
+                                </div>
                               </div>
-                            </div>
+                            </Link>
                           </CardContent>
                         </Card>
                       </div>

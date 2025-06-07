@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
 import Image from "next/image"
 import Link from "next/link"
-import { Heart, Star, Share2 } from "lucide-react"
+import { Star, Share2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -13,6 +13,7 @@ import { useAuth } from "@/hooks/use-auth"
 import { useToast } from "@/hooks/use-toast"
 import { StoreHeader } from "@/components/store-header"
 import { AddToCartButton } from "@/components/add-to-cart-button"
+import { AddToWishlistButton } from "@/components/add-to-wishlist-button"
 
 export default function ProductDetailPage() {
     const params = useParams()
@@ -24,7 +25,6 @@ export default function ProductDetailPage() {
     const [product, setProduct] = useState<any>(null)
     const [loading, setLoading] = useState(true)
     const [selectedImage, setSelectedImage] = useState(0)
-    const [isFavorite, setIsFavorite] = useState(false)
     const [relatedProducts, setRelatedProducts] = useState<any[]>([])
 
     useEffect(() => {
@@ -79,14 +79,6 @@ export default function ProductDetailPage() {
         } catch (error) {
             console.error("Error loading related products:", error)
         }
-    }
-
-    const toggleFavorite = () => {
-        setIsFavorite(!isFavorite)
-        toast({
-            title: isFavorite ? "Removed from Favorites" : "Added to Favorites",
-            description: `${product.name} ${isFavorite ? "removed from" : "added to"} your favorites`,
-        })
     }
 
     const shareProduct = () => {
@@ -296,9 +288,7 @@ export default function ProductDetailPage() {
                                     disabled={!product.inStock}
                                 />
                             </div>
-                            <Button variant="outline" size="icon" onClick={toggleFavorite}>
-                                <Heart className={`h-4 w-4 ${isFavorite ? "fill-red-500 text-red-500" : ""}`} />
-                            </Button>
+                            <AddToWishlistButton productId={productId} />
                         </div>
 
                         {/* Tags */}
