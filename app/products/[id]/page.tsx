@@ -4,13 +4,15 @@ import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
 import Image from "next/image"
 import Link from "next/link"
-import { Heart, ShoppingBag, Star, Plus, Minus, Share2 } from "lucide-react"
+import { Heart, Star, Share2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { useAuth } from "@/hooks/use-auth"
 import { useToast } from "@/hooks/use-toast"
+import { StoreHeader } from "@/components/store-header"
+import { AddToCartButton } from "@/components/add-to-cart-button"
 
 export default function ProductDetailPage() {
     const params = useParams()
@@ -22,7 +24,6 @@ export default function ProductDetailPage() {
     const [product, setProduct] = useState<any>(null)
     const [loading, setLoading] = useState(true)
     const [selectedImage, setSelectedImage] = useState(0)
-    const [quantity, setQuantity] = useState(1)
     const [isFavorite, setIsFavorite] = useState(false)
     const [relatedProducts, setRelatedProducts] = useState<any[]>([])
 
@@ -80,13 +81,6 @@ export default function ProductDetailPage() {
         }
     }
 
-    const addToCart = () => {
-        toast({
-            title: "Added to Cart",
-            description: `${quantity} ${product.name} added to your cart`,
-        })
-    }
-
     const toggleFavorite = () => {
         setIsFavorite(!isFavorite)
         toast({
@@ -113,24 +107,9 @@ export default function ProductDetailPage() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-white">
+            <div className="min-h-screen bg-white pt-16">
                 {/* Header */}
-                <header className="border-b border-gray-100">
-                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                        <div className="flex items-center justify-between h-16">
-                            <Link href="/" className="text-2xl font-light tracking-wide text-gray-900">
-                                LUMIÈRE
-                            </Link>
-                            <div className="flex items-center space-x-4">
-                                <Link href="/products">
-                                    <Button variant="ghost" size="icon">
-                                        <ShoppingBag className="h-5 w-5" />
-                                    </Button>
-                                </Link>
-                            </div>
-                        </div>
-                    </div>
-                </header>
+                <StoreHeader />
 
                 {/* Loading State */}
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -173,39 +152,9 @@ export default function ProductDetailPage() {
     const currentImage = images[selectedImage] || product.featuredImage || images[0]
 
     return (
-        <div className="min-h-screen bg-white">
+        <div className="min-h-screen bg-white pt-16">
             {/* Header */}
-            <header className="border-b border-gray-100">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="flex items-center justify-between h-16">
-                        <div className="flex items-center space-x-8">
-                            <Link href="/" className="text-2xl font-light tracking-wide text-gray-900">
-                                LUMIÈRE
-                            </Link>
-                            <nav className="hidden md:flex space-x-8">
-                                <Link href="/products" className="text-sm font-medium text-gray-900">
-                                    All Products
-                                </Link>
-                            </nav>
-                        </div>
-
-                        <div className="flex items-center space-x-4">
-                            {user && isAdmin && (
-                                <Link href={`/admin/products/${productId}`}>
-                                    <Button variant="outline" size="sm">
-                                        Edit Product
-                                    </Button>
-                                </Link>
-                            )}
-                            <Link href="/cart">
-                                <Button variant="ghost" size="icon">
-                                    <ShoppingBag className="h-5 w-5" />
-                                </Button>
-                            </Link>
-                        </div>
-                    </div>
-                </div>
-            </header>
+            <StoreHeader />
 
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                 {/* Breadcrumb */}
@@ -337,44 +286,19 @@ export default function ProductDetailPage() {
               </span>
                         </div>
 
-                        {/* Quantity and Actions */}
-                        <div className="space-y-4">
-                            <div className="flex items-center space-x-4">
-                                <span className="text-sm font-medium text-gray-900">Quantity:</span>
-                                <div className="flex items-center border border-gray-300 rounded-md">
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                                        disabled={quantity <= 1}
-                                    >
-                                        <Minus className="h-4 w-4" />
-                                    </Button>
-                                    <span className="px-4 py-2 text-sm font-medium">{quantity}</span>
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => setQuantity(Math.min(product.stockQuantity || 99, quantity + 1))}
-                                        disabled={quantity >= (product.stockQuantity || 99)}
-                                    >
-                                        <Plus className="h-4 w-4" />
-                                    </Button>
-                                </div>
-                            </div>
-
-                            <div className="flex space-x-4">
-                                <Button
-                                    className="flex-1 bg-gray-900 hover:bg-gray-800 text-white"
-                                    onClick={addToCart}
+                        {/* Add to Cart and Favorite */}
+                        <div className="flex space-x-4">
+                            <div className="flex-1">
+                                <AddToCartButton
+                                    product={product}
+                                    variant="full"
+                                    showQuantitySelector={true}
                                     disabled={!product.inStock}
-                                >
-                                    <ShoppingBag className="h-4 w-4 mr-2" />
-                                    Add to Cart
-                                </Button>
-                                <Button variant="outline" size="icon" onClick={toggleFavorite}>
-                                    <Heart className={`h-4 w-4 ${isFavorite ? "fill-red-500 text-red-500" : ""}`} />
-                                </Button>
+                                />
                             </div>
+                            <Button variant="outline" size="icon" onClick={toggleFavorite}>
+                                <Heart className={`h-4 w-4 ${isFavorite ? "fill-red-500 text-red-500" : ""}`} />
+                            </Button>
                         </div>
 
                         {/* Tags */}

@@ -3,18 +3,18 @@
 import { useState, useEffect } from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { Heart, Plus } from "lucide-react"
+import { Heart } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { useAuth } from "@/hooks/use-auth"
 import { StoreHeader } from "@/components/store-header"
+import { AddToCartButton } from "@/components/add-to-cart-button"
 
 export default function HomePage() {
   const { user, isAdmin } = useAuth()
   const [products, setProducts] = useState<any[]>([])
-  const [cartItems, setCartItems] = useState(0)
   const [favorites, setFavorites] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -53,10 +53,6 @@ export default function HomePage() {
 
   const toggleFavorite = (productId: string) => {
     setFavorites((prev) => (prev.includes(productId) ? prev.filter((id) => id !== productId) : [...prev, productId]))
-  }
-
-  const addToCart = () => {
-    setCartItems((prev) => prev + 1)
   }
 
   return (
@@ -202,18 +198,14 @@ export default function HomePage() {
                                         className={`h-4 w-4 ${favorites.includes(product.id) ? "fill-red-500 text-red-500" : "text-gray-600"}`}
                                     />
                                   </Button>
-                                  <Button
-                                      variant="secondary"
-                                      size="icon"
-                                      className="bg-white/90 hover:bg-white shadow-lg"
+                                  <div
                                       onClick={(e) => {
                                         e.preventDefault()
                                         e.stopPropagation()
-                                        addToCart()
                                       }}
                                   >
-                                    <Plus className="h-4 w-4 text-gray-600" />
-                                  </Button>
+                                    <AddToCartButton product={product} variant="icon" />
+                                  </div>
                                 </div>
                               </div>
                             </Link>

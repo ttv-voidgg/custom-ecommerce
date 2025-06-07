@@ -112,6 +112,22 @@ export default function AdminSettingsPage() {
         }
     }
 
+    const handleRemoveLogo = async () => {
+        try {
+            setSettings((prev) => ({ ...prev, logoUrl: "" }))
+            toast({
+                title: "Logo removed!",
+                description: "Your store logo has been removed successfully",
+            })
+        } catch (error) {
+            toast({
+                title: "Error",
+                description: "Failed to remove logo. Please try again.",
+                variant: "destructive",
+            })
+        }
+    }
+
     const handleSaveSettings = async () => {
         setSaving(true)
         try {
@@ -256,6 +272,14 @@ export default function AdminSettingsPage() {
                                                 height={80}
                                                 className="max-h-20 w-auto object-contain"
                                             />
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={handleRemoveLogo}
+                                                className="mt-2 w-full text-red-600 hover:text-red-700 hover:bg-red-50"
+                                            >
+                                                Remove Logo
+                                            </Button>
                                         </div>
                                     </div>
                                 )}

@@ -16,6 +16,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Progress } from "@/components/ui/progress"
 import { useToast } from "@/hooks/use-toast"
 import { uploadWithProgress } from "@/lib/upload-with-progress"
+import { AddCategoryModal } from "./add-category-modal"
 
 interface ProductFormData {
   name: string
@@ -59,12 +60,12 @@ interface ProductFormProps {
   submitLabel: string
 }
 
-const categories = []
 export function ProductForm({ initialData, onSubmit, isLoading, submitLabel }: ProductFormProps) {
   const { toast } = useToast()
   const [uploading, setUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [categories, setCategories] = useState<any[]>([])
+  const [isAddCategoryModalOpen, setIsAddCategoryModalOpen] = useState(false)
 
   const [formData, setFormData] = useState<ProductFormData>({
     name: "",
@@ -257,6 +258,19 @@ export function ProductForm({ initialData, onSubmit, isLoading, submitLabel }: P
     })
   }
 
+  const handleCategoryAdded = (newCategory: { id: string; name: string; slug: string }) => {
+    // Add the new category to the list
+    setCategories((prev) => [...prev, newCategory])
+
+    // Set it as the selected category
+    handleInputChange("category", newCategory.slug)
+
+    toast({
+      title: "Category selected",
+      description: `"${newCategory.name}" has been set as the product category`,
+    })
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -282,7 +296,7 @@ export function ProductForm({ initialData, onSubmit, isLoading, submitLabel }: P
     if (!formData.category) {
       toast({
         title: "Error",
-        description: "Product categories is required",
+        description: "Product category is required",
         variant: "destructive",
       })
       return
@@ -302,6 +316,13 @@ export function ProductForm({ initialData, onSubmit, isLoading, submitLabel }: P
 
   return (
       <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Add Category Modal */}
+        <AddCategoryModal
+            isOpen={isAddCategoryModalOpen}
+            onClose={() => setIsAddCategoryModalOpen(false)}
+            onCategoryAdded={handleCategoryAdded}
+        />
+
         {/* Basic Information */}
         <Card>
           <CardHeader>
@@ -323,18 +344,31 @@ export function ProductForm({ initialData, onSubmit, isLoading, submitLabel }: P
 
               <div>
                 <Label htmlFor="category">Category *</Label>
-                <Select value={formData.category} onValueChange={(value) => handleInputChange("category", value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map((category) => (
-                        <SelectItem key={category.id} value={category.id}>
-                          {category.name}
-                        </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex space-x-2">
+                  <div className="flex-1">
+                    <Select value={formData.category} onValueChange={(value) => handleInputChange("category", value)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {categories.map((category) => (
+                            <SelectItem key={category.id} value={category.slug}>
+                              {category.name}
+                            </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={() => setIsAddCategoryModalOpen(true)}
+                      title="Add new category"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
             </div>
 

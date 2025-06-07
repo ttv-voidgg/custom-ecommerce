@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { useSearchParams } from "next/navigation"
 import Image from "next/image"
 import Link from "next/link"
-import { Heart, Search, ShoppingBag, Star, Grid, List } from "lucide-react"
+import { Heart, Search, Star, Grid, List } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -14,6 +14,8 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { Slider } from "@/components/ui/slider"
 import { useAuth } from "@/hooks/use-auth"
+import { StoreHeader } from "@/components/store-header"
+import {AddToCartButton} from "@/components/add-to-cart-button";
 
 export default function ProductsPage() {
   const { user, isAdmin, logout } = useAuth()
@@ -35,6 +37,16 @@ export default function ProductsPage() {
   useEffect(() => {
     loadProducts()
   }, [])
+
+  useEffect(() => {
+    // Update selected categories when URL category parameter changes
+    const urlCategory = searchParams.get("category")
+    if (urlCategory) {
+      setSelectedCategories([urlCategory])
+    } else {
+      setSelectedCategories([])
+    }
+  }, [searchParams])
 
   useEffect(() => {
     filterProducts()
@@ -71,7 +83,7 @@ export default function ProductsPage() {
   const filterProducts = () => {
     let filtered = [...products]
 
-    // Filter by categories
+    // Filter by category
     if (selectedCategories.length > 0) {
       filtered = filtered.filter((product) => selectedCategories.includes(product.category?.toLowerCase()))
     }
@@ -119,82 +131,8 @@ export default function ProductsPage() {
   }
 
   return (
-      <div className="min-h-screen bg-white">
-        {/* Header */}
-        <header className="border-b border-gray-100">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center justify-between h-16">
-              <div className="flex items-center space-x-8">
-                <Link href="/" className="text-2xl font-light tracking-wide text-gray-900">
-                  LUMIÈRE
-                </Link>
-                <nav className="hidden md:flex space-x-8">
-                  <Link href="/products" className="text-sm font-medium text-gray-900">
-                    All Products
-                  </Link>
-                  <Link
-                      href="/products?category=rings"
-                      className="text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors"
-                  >
-                    Rings
-                  </Link>
-                  <Link
-                      href="/products?category=necklaces"
-                      className="text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors"
-                  >
-                    Necklaces
-                  </Link>
-                  <Link
-                      href="/products?category=earrings"
-                      className="text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors"
-                  >
-                    Earrings
-                  </Link>
-                  <Link
-                      href="/products?category=bracelets"
-                      className="text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors"
-                  >
-                    Bracelets
-                  </Link>
-                </nav>
-              </div>
-
-              <div className="flex items-center space-x-4">
-                {user ? (
-                    <div className="flex items-center space-x-2">
-                      {isAdmin && (
-                          <Link href="/admin">
-                            <Button variant="outline" size="sm">
-                              Admin
-                            </Button>
-                          </Link>
-                      )}
-                      <Link href="/account">
-                        <Button variant="ghost" size="icon">
-                          <Search className="h-5 w-5" />
-                        </Button>
-                      </Link>
-                      <Button variant="ghost" size="sm" onClick={logout}>
-                        Logout
-                      </Button>
-                    </div>
-                ) : (
-                    <Link href="/auth">
-                      <Button variant="ghost" size="icon">
-                        <Search className="h-5 w-5" />
-                      </Button>
-                    </Link>
-                )}
-
-                <Link href="/cart">
-                  <Button variant="ghost" size="icon">
-                    <ShoppingBag className="h-5 w-5" />
-                  </Button>
-                </Link>
-              </div>
-            </div>
-          </div>
-        </header>
+      <div className="min-h-screen bg-white pt-16">
+        <StoreHeader />
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="flex flex-col lg:flex-row gap-8">
@@ -387,16 +325,11 @@ export default function ProductsPage() {
                               </span>
                                   )}
                                 </div>
-                                <Button
-                                    size="sm"
-                                    className="bg-gray-900 hover:bg-gray-800 text-white"
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      // Add to cart logic
-                                    }}
-                                >
-                                  Add to Cart
-                                </Button>
+                                <AddToCartButton
+                                    product={product}
+                                    variant="textOnly"
+                                    disabled={!product.inStock}
+                                />
                               </div>
                             </div>
                           </CardContent>

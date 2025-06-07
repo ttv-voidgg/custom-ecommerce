@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 import Link from "next/link"
-import { Plus, Search, Edit, Trash2, ArrowLeft, Eye, Star } from "lucide-react"
+import { Plus, Search, Edit, Trash2, ArrowLeft, Eye, Star, ChevronUp, ChevronDown, Tag } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -34,19 +34,31 @@ interface Product {
     updatedAt: any
 }
 
+interface Category {
+    id: string
+    name: string
+    slug: string
+    description: string
+}
+
+type SortField = "name" | "category" | "price" | "stockQuantity" | "rating" | "createdAt"
+type SortDirection = "asc" | "desc"
+
 export default function AdminProductsPage() {
     const { user, isAdmin, loading } = useAuth()
     const router = useRouter()
     const { toast } = useToast()
 
     const [products, setProducts] = useState<Product[]>([])
+    const [categories, setCategories] = useState<Category[]>([])
     const [filteredProducts, setFilteredProducts] = useState<Product[]>([])
     const [loadingProducts, setLoadingProducts] = useState(true)
+    const [loadingCategories, setLoadingCategories] = useState(true)
     const [searchQuery, setSearchQuery] = useState("")
     const [categoryFilter, setCategoryFilter] = useState("all")
     const [statusFilter, setStatusFilter] = useState("all")
-
-    const categories = ["all", "rings", "necklaces", "earrings", "bracelets", "watches", "brooches"]
+    const [sortField, setSortField] = useState<SortField>("createdAt")
+    const [sortDirection, setSortDirection] = useState<SortDirection>("desc")
 
     useEffect(() => {
         if (!loading && (!user || !isAdmin)) {
@@ -57,12 +69,13 @@ export default function AdminProductsPage() {
     useEffect(() => {
         if (user && isAdmin) {
             loadProducts()
+            loadCategories()
         }
     }, [user, isAdmin])
 
     useEffect(() => {
-        filterProducts()
-    }, [products, searchQuery, categoryFilter, statusFilter])
+        filterAndSortProducts()
+    }, [products, searchQuery, categoryFilter, statusFilter, sortField, sortDirection])
 
     const loadProducts = async () => {
         setLoadingProducts(true)
@@ -90,7 +103,33 @@ export default function AdminProductsPage() {
         }
     }
 
-    const filterProducts = () => {
+    const loadCategories = async () => {
+        setLoadingCategories(true)
+        try {
+            console.log("Fetching categories from API...")
+            const response = await fetch("/api/categories")
+            const result = await response.json()
+            console.log("Categories API response:", result)
+
+            if (result.success) {
+                setCategories(result.categories)
+                console.log(`Loaded ${result.categories.length} categories successfully`)
+            } else {
+                throw new Error(result.error || "Failed to load categories")
+            }
+        } catch (error) {
+            console.error("Error loading categories:", error)
+            toast({
+                title: "Error",
+                description: "Failed to load categories",
+                variant: "destructive",
+            })
+        } finally {
+            setLoadingCategories(false)
+        }
+    }
+
+    const filterAndSortProducts = () => {
         let filtered = [...products]
 
         // Search filter
@@ -117,7 +156,76 @@ export default function AdminProductsPage() {
             filtered = filtered.filter((product) => product.featured)
         }
 
+        // Sort products
+        filtered.sort((a, b) => {
+            let aValue: any
+            let bValue: any
+
+            switch (sortField) {
+                case "name":
+                    aValue = a.name.toLowerCase()
+                    bValue = b.name.toLowerCase()
+                    break
+                case "category":
+                    // Find category name for display
+                    const aCat = categories.find((cat) => cat.slug === a.category)
+                    const bCat = categories.find((cat) => cat.slug === b.category)
+                    aValue = aCat?.name.toLowerCase() || a.category.toLowerCase()
+                    bValue = bCat?.name.toLowerCase() || b.category.toLowerCase()
+                    break
+                case "price":
+                    aValue = a.price
+                    bValue = b.price
+                    break
+                case "stockQuantity":
+                    aValue = a.stockQuantity
+                    bValue = b.stockQuantity
+                    break
+                case "rating":
+                    aValue = a.rating
+                    bValue = b.rating
+                    break
+                case "createdAt":
+                    aValue = a.createdAt?.seconds || 0
+                    bValue = b.createdAt?.seconds || 0
+                    break
+                default:
+                    aValue = a.name.toLowerCase()
+                    bValue = b.name.toLowerCase()
+            }
+
+            if (aValue < bValue) {
+                return sortDirection === "asc" ? -1 : 1
+            }
+            if (aValue > bValue) {
+                return sortDirection === "asc" ? 1 : -1
+            }
+            return 0
+        })
+
         setFilteredProducts(filtered)
+    }
+
+    const handleSort = (field: SortField) => {
+        if (sortField === field) {
+            // Toggle direction if same field
+            setSortDirection(sortDirection === "asc" ? "desc" : "asc")
+        } else {
+            // Set new field with default direction
+            setSortField(field)
+            setSortDirection("asc")
+        }
+    }
+
+    const getSortIcon = (field: SortField) => {
+        if (sortField !== field) {
+            return <ChevronUp className="h-4 w-4 text-gray-300" />
+        }
+        return sortDirection === "asc" ? (
+            <ChevronUp className="h-4 w-4 text-gray-600" />
+        ) : (
+            <ChevronDown className="h-4 w-4 text-gray-600" />
+        )
     }
 
     const handleDeleteProduct = async (productId: string, productName: string) => {
@@ -162,6 +270,12 @@ export default function AdminProductsPage() {
         return "/placeholder.svg?height=60&width=60"
     }
 
+    // Helper function to get category name from slug
+    const getCategoryName = (categorySlug: string) => {
+        const category = categories.find((cat) => cat.slug === categorySlug)
+        return category?.name || categorySlug
+    }
+
     if (loading || loadingProducts) {
         return (
             <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -190,12 +304,20 @@ export default function AdminProductsPage() {
                             </Button>
                             <h1 className="text-xl font-light tracking-wide text-gray-900">Product Management</h1>
                         </div>
-                        <Link href="/admin/products/new">
-                            <Button>
-                                <Plus className="h-4 w-4 mr-2" />
-                                Add Product
-                            </Button>
-                        </Link>
+                        <div className="flex items-center space-x-2">
+                            <Link href="/admin/categories">
+                                <Button variant="outline" size="sm">
+                                    <Tag className="h-4 w-4 mr-2" />
+                                    Manage Categories
+                                </Button>
+                            </Link>
+                            <Link href="/admin/products/new">
+                                <Button>
+                                    <Plus className="h-4 w-4 mr-2" />
+                                    Add Product
+                                </Button>
+                            </Link>
+                        </div>
                     </div>
                 </div>
             </header>
@@ -273,11 +395,18 @@ export default function AdminProductsPage() {
                                     <SelectValue placeholder="Category" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {categories.map((category) => (
-                                        <SelectItem key={category} value={category}>
-                                            {category === "all" ? "All Categories" : category.charAt(0).toUpperCase() + category.slice(1)}
+                                    <SelectItem value="all">All Categories</SelectItem>
+                                    {loadingCategories ? (
+                                        <SelectItem value="loading" disabled>
+                                            Loading categories...
                                         </SelectItem>
-                                    ))}
+                                    ) : (
+                                        categories.map((category) => (
+                                            <SelectItem key={category.id} value={category.slug}>
+                                                {category.name}
+                                            </SelectItem>
+                                        ))
+                                    )}
                                 </SelectContent>
                             </Select>
 
@@ -324,12 +453,52 @@ export default function AdminProductsPage() {
                                 <table className="w-full">
                                     <thead>
                                     <tr className="border-b">
-                                        <th className="text-left py-3 px-4 font-medium text-gray-900">Product</th>
-                                        <th className="text-left py-3 px-4 font-medium text-gray-900">Category</th>
-                                        <th className="text-left py-3 px-4 font-medium text-gray-900">Price</th>
-                                        <th className="text-left py-3 px-4 font-medium text-gray-900">Stock</th>
+                                        <th
+                                            className="text-left py-3 px-4 font-medium text-gray-900 cursor-pointer hover:bg-gray-50 select-none"
+                                            onClick={() => handleSort("name")}
+                                        >
+                                            <div className="flex items-center space-x-1">
+                                                <span>Product</span>
+                                                {getSortIcon("name")}
+                                            </div>
+                                        </th>
+                                        <th
+                                            className="text-left py-3 px-4 font-medium text-gray-900 cursor-pointer hover:bg-gray-50 select-none"
+                                            onClick={() => handleSort("category")}
+                                        >
+                                            <div className="flex items-center space-x-1">
+                                                <span>Category</span>
+                                                {getSortIcon("category")}
+                                            </div>
+                                        </th>
+                                        <th
+                                            className="text-left py-3 px-4 font-medium text-gray-900 cursor-pointer hover:bg-gray-50 select-none"
+                                            onClick={() => handleSort("price")}
+                                        >
+                                            <div className="flex items-center space-x-1">
+                                                <span>Price</span>
+                                                {getSortIcon("price")}
+                                            </div>
+                                        </th>
+                                        <th
+                                            className="text-left py-3 px-4 font-medium text-gray-900 cursor-pointer hover:bg-gray-50 select-none"
+                                            onClick={() => handleSort("stockQuantity")}
+                                        >
+                                            <div className="flex items-center space-x-1">
+                                                <span>Stock</span>
+                                                {getSortIcon("stockQuantity")}
+                                            </div>
+                                        </th>
                                         <th className="text-left py-3 px-4 font-medium text-gray-900">Status</th>
-                                        <th className="text-left py-3 px-4 font-medium text-gray-900">Rating</th>
+                                        <th
+                                            className="text-left py-3 px-4 font-medium text-gray-900 cursor-pointer hover:bg-gray-50 select-none"
+                                            onClick={() => handleSort("rating")}
+                                        >
+                                            <div className="flex items-center space-x-1">
+                                                <span>Rating</span>
+                                                {getSortIcon("rating")}
+                                            </div>
+                                        </th>
                                         <th className="text-right py-3 px-4 font-medium text-gray-900">Actions</th>
                                     </tr>
                                     </thead>
@@ -374,7 +543,7 @@ export default function AdminProductsPage() {
                                             </td>
                                             <td className="py-4 px-4">
                                                 <Badge variant="outline" className="capitalize">
-                                                    {product.category}
+                                                    {getCategoryName(product.category)}
                                                 </Badge>
                                             </td>
                                             <td className="py-4 px-4">

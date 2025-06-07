@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useAuth } from "@/hooks/use-auth"
 import { useToast } from "@/hooks/use-toast"
+import { StoreHeader } from "@/components/store-header"
 
 export default function AdminDashboard() {
   const { user, isAdmin, loading } = useAuth()
@@ -139,28 +140,8 @@ export default function AdminDashboard() {
   }
 
   return (
-      <div className="min-h-screen bg-gray-50">
-        {/* Header */}
-        <header className="bg-white shadow-sm border-b">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center justify-between h-16">
-              <div className="flex items-center space-x-4">
-                <Link href="/" className="text-xl font-light tracking-wide text-gray-900">
-                  LUMIÈRE
-                </Link>
-                <span className="text-sm text-gray-500">Admin Dashboard</span>
-              </div>
-              <div className="flex items-center space-x-4">
-                <span className="text-sm text-gray-600">Welcome, {user.email}</span>
-                <Link href="/">
-                  <Button variant="outline" size="sm">
-                    View Store
-                  </Button>
-                </Link>
-              </div>
-            </div>
-          </div>
-        </header>
+      <div className="min-h-screen bg-gray-50 pt-16">
+        <StoreHeader />
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="mb-8">

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { Plus, Search, Edit, Trash2, ArrowLeft, Package } from "lucide-react"
+import { Plus, Search, Edit, Trash2, ArrowLeft, Package, ChevronUp, ChevronDown } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -22,6 +22,9 @@ interface Category {
     updatedAt: any
 }
 
+type SortField = "name" | "slug" | "productCount" | "createdAt"
+type SortDirection = "asc" | "desc"
+
 export default function AdminCategoriesPage() {
     const { user, isAdmin, loading } = useAuth()
     const router = useRouter()
@@ -35,6 +38,8 @@ export default function AdminCategoriesPage() {
     const [editingCategory, setEditingCategory] = useState<Category | null>(null)
     const [deletingCategory, setDeletingCategory] = useState<Category | null>(null)
     const [productCounts, setProductCounts] = useState<Record<string, number>>({})
+    const [sortField, setSortField] = useState<SortField>("name")
+    const [sortDirection, setSortDirection] = useState<SortDirection>("asc")
 
     useEffect(() => {
         if (!loading && (!user || !isAdmin)) {
@@ -45,13 +50,18 @@ export default function AdminCategoriesPage() {
     useEffect(() => {
         if (user && isAdmin) {
             loadCategories()
-            loadProductCounts()
         }
     }, [user, isAdmin])
 
     useEffect(() => {
-        filterCategories()
-    }, [categories, searchQuery])
+        if (categories.length > 0) {
+            loadProductCounts()
+        }
+    }, [categories])
+
+    useEffect(() => {
+        filterAndSortCategories()
+    }, [categories, searchQuery, sortField, sortDirection, productCounts])
 
     const loadCategories = async () => {
         setLoadingCategories(true)
@@ -60,6 +70,7 @@ export default function AdminCategoriesPage() {
             const result = await response.json()
 
             if (result.success) {
+                console.log("Loaded categories:", result.categories)
                 setCategories(result.categories)
             } else {
                 throw new Error(result.error || "Failed to load categories")
@@ -78,36 +89,38 @@ export default function AdminCategoriesPage() {
 
     const loadProductCounts = async () => {
         try {
+            console.log("Loading product counts for categories:", categories)
             const response = await fetch("/api/products")
             const result = await response.json()
 
             if (result.success) {
                 const counts: Record<string, number> = {}
 
-                // Count products by category slug, but map to category document ID
-                const categorySlugToId: Record<string, string> = {}
+                // Initialize all categories with 0 count
                 categories.forEach((category) => {
-                    categorySlugToId[category.slug] = category.id
+                    counts[category.id] = 0
                 })
 
+                // Count products by category slug and map to category ID
                 result.products.forEach((product: any) => {
-                    const categoryId = categorySlugToId[product.category]
-                    if (categoryId) {
-                        counts[categoryId] = (counts[categoryId] || 0) + 1
+                    const category = categories.find((cat) => cat.slug === product.category)
+                    if (category) {
+                        counts[category.id] = (counts[category.id] || 0) + 1
                     }
                 })
 
+                console.log("Product counts calculated:", counts)
                 setProductCounts(counts)
-                console.log("Product counts by category:", counts)
             }
         } catch (error) {
             console.error("Error loading product counts:", error)
         }
     }
 
-    const filterCategories = () => {
+    const filterAndSortCategories = () => {
         let filtered = [...categories]
 
+        // Apply search filter
         if (searchQuery) {
             filtered = filtered.filter(
                 (category) =>
@@ -117,7 +130,75 @@ export default function AdminCategoriesPage() {
             )
         }
 
+        // Apply sorting
+        filtered.sort((a, b) => {
+            let aValue: any
+            let bValue: any
+
+            switch (sortField) {
+                case "name":
+                    aValue = a.name.toLowerCase()
+                    bValue = b.name.toLowerCase()
+                    break
+                case "slug":
+                    aValue = a.slug.toLowerCase()
+                    bValue = b.slug.toLowerCase()
+                    break
+                case "productCount":
+                    aValue = productCounts[a.id] || 0
+                    bValue = productCounts[b.id] || 0
+                    break
+                case "createdAt":
+                    aValue = a.createdAt?.seconds || 0
+                    bValue = b.createdAt?.seconds || 0
+                    break
+                default:
+                    return 0
+            }
+
+            if (aValue < bValue) return sortDirection === "asc" ? -1 : 1
+            if (aValue > bValue) return sortDirection === "asc" ? 1 : -1
+            return 0
+        })
+
         setFilteredCategories(filtered)
+    }
+
+    const handleSort = (field: SortField) => {
+        if (sortField === field) {
+            setSortDirection(sortDirection === "asc" ? "desc" : "asc")
+        } else {
+            setSortField(field)
+            setSortDirection("asc")
+        }
+    }
+
+    const getSortIcon = (field: SortField) => {
+        if (sortField !== field) return null
+        return sortDirection === "asc" ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />
+    }
+
+    const formatDate = (timestamp: any) => {
+        if (!timestamp) return "Unknown"
+
+        try {
+            // Handle Firestore Timestamp
+            if (timestamp.seconds) {
+                return new Date(timestamp.seconds * 1000).toLocaleDateString()
+            }
+            // Handle regular Date
+            if (timestamp.toDate) {
+                return timestamp.toDate().toLocaleDateString()
+            }
+            // Handle ISO string
+            if (typeof timestamp === "string") {
+                return new Date(timestamp).toLocaleDateString()
+            }
+            return "Unknown"
+        } catch (error) {
+            console.error("Error formatting date:", error, timestamp)
+            return "Unknown"
+        }
     }
 
     const handleCreateCategory = async (categoryData: any) => {
@@ -139,7 +220,6 @@ export default function AdminCategoriesPage() {
                 })
                 setShowCreateForm(false)
                 loadCategories()
-                loadProductCounts()
             } else {
                 throw new Error(result.error || "Failed to create category")
             }
@@ -233,7 +313,6 @@ export default function AdminCategoriesPage() {
 
             setDeletingCategory(null)
             loadCategories()
-            loadProductCounts()
         } catch (error: any) {
             toast({
                 title: "Error",
@@ -337,10 +416,42 @@ export default function AdminCategoriesPage() {
                                 <table className="w-full">
                                     <thead>
                                     <tr className="border-b">
-                                        <th className="text-left py-3 px-4 font-medium text-gray-900">Category</th>
-                                        <th className="text-left py-3 px-4 font-medium text-gray-900">Slug</th>
-                                        <th className="text-left py-3 px-4 font-medium text-gray-900">Products</th>
-                                        <th className="text-left py-3 px-4 font-medium text-gray-900">Created</th>
+                                        <th
+                                            className="text-left py-3 px-4 font-medium text-gray-900 cursor-pointer hover:bg-gray-50 select-none"
+                                            onClick={() => handleSort("name")}
+                                        >
+                                            <div className="flex items-center space-x-1">
+                                                <span>Category</span>
+                                                {getSortIcon("name")}
+                                            </div>
+                                        </th>
+                                        <th
+                                            className="text-left py-3 px-4 font-medium text-gray-900 cursor-pointer hover:bg-gray-50 select-none"
+                                            onClick={() => handleSort("slug")}
+                                        >
+                                            <div className="flex items-center space-x-1">
+                                                <span>Slug</span>
+                                                {getSortIcon("slug")}
+                                            </div>
+                                        </th>
+                                        <th
+                                            className="text-left py-3 px-4 font-medium text-gray-900 cursor-pointer hover:bg-gray-50 select-none"
+                                            onClick={() => handleSort("productCount")}
+                                        >
+                                            <div className="flex items-center space-x-1">
+                                                <span>Products</span>
+                                                {getSortIcon("productCount")}
+                                            </div>
+                                        </th>
+                                        <th
+                                            className="text-left py-3 px-4 font-medium text-gray-900 cursor-pointer hover:bg-gray-50 select-none"
+                                            onClick={() => handleSort("createdAt")}
+                                        >
+                                            <div className="flex items-center space-x-1">
+                                                <span>Created</span>
+                                                {getSortIcon("createdAt")}
+                                            </div>
+                                        </th>
                                         <th className="text-right py-3 px-4 font-medium text-gray-900">Actions</th>
                                     </tr>
                                     </thead>
@@ -367,9 +478,7 @@ export default function AdminCategoriesPage() {
                                                 </div>
                                             </td>
                                             <td className="py-4 px-4">
-                                                <p className="text-sm text-gray-500">
-                                                    {category.createdAt?.toDate?.()?.toLocaleDateString() || "Unknown"}
-                                                </p>
+                                                <p className="text-sm text-gray-500">{formatDate(category.createdAt)}</p>
                                             </td>
                                             <td className="py-4 px-4">
                                                 <div className="flex items-center justify-end space-x-2">
