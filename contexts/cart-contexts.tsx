@@ -22,7 +22,7 @@ interface CartContextType {
     clearCart: () => void
 }
 
-const CartContexts = createContext<CartContextType | undefined>(undefined)
+const CartContext = createContext<CartContextType | undefined>(undefined)
 
 export function CartProvider({ children }: { children: ReactNode }) {
     const [items, setItems] = useState<CartItem[]>([])
@@ -45,7 +45,43 @@ export function CartProvider({ children }: { children: ReactNode }) {
         localStorage.setItem("cart", JSON.stringify(items))
     }, [items])
 
-    const addToCart = (product: any, quantity = 1) => {
+    const addToCart = async (product: any, quantity = 1) => {
+        // Validate stock before adding
+        try {
+            // Fetch latest stock information
+            const response = await fetch(`/api/products/${product.id}`)
+            const data = await response.json()
+
+            if (data.success) {
+                const currentStock = data.product.stockQuantity || 0
+                const currentInCart = items.find((item) => item.id === product.id)?.quantity || 0
+
+                // Check if adding would exceed stock
+                if (currentInCart + quantity > currentStock) {
+                    const available = currentStock - currentInCart
+
+                    if (available <= 0) {
+                        toast({
+                            title: "Stock Limit Reached",
+                            description: "This item is already in your cart at maximum quantity",
+                            variant: "destructive",
+                        })
+                        return
+                    }
+
+                    // Add only what's available
+                    quantity = available
+                    toast({
+                        title: "Limited Stock",
+                        description: `Only ${available} more available. Added to your cart.`,
+                    })
+                }
+            }
+        } catch (error) {
+            console.error("Error checking stock:", error)
+            // Continue with add to cart, but might exceed stock
+        }
+
         setItems((prevItems) => {
             const existingItem = prevItems.find((item) => item.id === product.id)
 
@@ -106,7 +142,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     const totalPrice = items.reduce((sum, item) => sum + item.price * item.quantity, 0)
 
     return (
-        <CartContexts.Provider
+        <CartContext.Provider
             value={{
                 items,
                 totalItems,
@@ -118,12 +154,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
             }}
         >
             {children}
-        </CartContexts.Provider>
+        </CartContext.Provider>
     )
 }
 
 export function useCart() {
-    const context = useContext(CartContexts)
+    const context = useContext(CartContext)
     if (context === undefined) {
         throw new Error("useCart must be used within a CartProvider")
     }

@@ -6,7 +6,7 @@ import { useState, useEffect } from "react"
 import { ShoppingBag, Plus, Minus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useCart } from "@/contexts/cart-contexts"
-import { useToast } from "@/components/ui/use-toast"
+import { useToast } from "@/hooks/use-toast"
 
 interface AddToCartButtonProps {
     product?: any
@@ -27,7 +27,7 @@ export function AddToCartButton({
                                     showQuantitySelector = false,
                                     disabled = false,
                                 }: AddToCartButtonProps) {
-    const { addToCart } = useCart()
+    const { items, addToCart } = useCart()
     const [quantity, setQuantity] = useState(1)
     const [product, setProduct] = useState(initialProduct)
     const [loading, setLoading] = useState(false)
@@ -49,8 +49,12 @@ export function AddToCartButton({
             if (!response.ok) {
                 throw new Error("Failed to fetch product")
             }
-            const productData = await response.json()
-            setProduct(productData)
+            const data = await response.json()
+            if (data.success) {
+                setProduct(data.product)
+            } else {
+                throw new Error(data.message || "Failed to fetch product")
+            }
         } catch (error) {
             console.error("Error fetching product:", error)
             toast({
@@ -63,6 +67,18 @@ export function AddToCartButton({
         }
     }
 
+    // Check if we can add this quantity to cart (respecting stock limits)
+    const canAddToCart = (qty: number) => {
+        if (!product) return false
+
+        // Get current quantity in cart
+        const currentInCart = items.find((item) => item.id === (product.id || productId))?.quantity || 0
+
+        // Check if adding this quantity would exceed stock
+        const stockLimit = product.stockQuantity || 0
+        return currentInCart + qty <= stockLimit
+    }
+
     const handleAddToCart = (e?: React.MouseEvent) => {
         if (e) {
             e.preventDefault()
@@ -70,6 +86,32 @@ export function AddToCartButton({
         }
 
         if (!product || disabled || loading) return
+
+        // Check stock limits
+        if (!canAddToCart(quantity)) {
+            const currentInCart = items.find((item) => item.id === (product.id || productId))?.quantity || 0
+            const remaining = (product.stockQuantity || 0) - currentInCart
+
+            if (remaining <= 0) {
+                toast({
+                    title: "Stock Limit Reached",
+                    description: "This item is already in your cart at maximum quantity",
+                    variant: "destructive",
+                })
+            } else {
+                toast({
+                    title: "Stock Limit Reached",
+                    description: `You can only add ${remaining} more of this item`,
+                    variant: "destructive",
+                })
+
+                // Add the remaining quantity instead
+                if (remaining > 0) {
+                    addToCart(product, remaining)
+                }
+            }
+            return
+        }
 
         addToCart(product, quantity)
     }
@@ -97,6 +139,7 @@ export function AddToCartButton({
                 disabled
             >
                 <ShoppingBag className="h-4 w-4 animate-pulse" />
+                {variant !== "icon" && variant !== "textOnly" && <span className="ml-2">Loading...</span>}
             </Button>
         )
     }
@@ -109,7 +152,7 @@ export function AddToCartButton({
                 size="icon"
                 className={`bg-white/90 hover:bg-white shadow-lg ${className}`}
                 onClick={handleAddToCart}
-                disabled={disabled || !product}
+                disabled={disabled || !product || !product.inStock}
             >
                 <ShoppingBag className="h-4 w-4 text-gray-600" />
             </Button>
@@ -132,7 +175,7 @@ export function AddToCartButton({
                                 variant="ghost"
                                 size="sm"
                                 onClick={incrementQuantity}
-                                disabled={quantity >= (product?.stockQuantity || 99)}
+                                disabled={quantity >= (product?.stockQuantity || 0)}
                             >
                                 <Plus className="h-4 w-4" />
                             </Button>
@@ -143,7 +186,7 @@ export function AddToCartButton({
                 <Button
                     className={`flex-1 bg-gray-900 hover:bg-gray-800 text-white ${className}`}
                     onClick={handleAddToCart}
-                    disabled={disabled || !product}
+                    disabled={disabled || !product || !product.inStock}
                     size={size}
                 >
                     <ShoppingBag className="h-4 w-4 mr-2" />
@@ -153,20 +196,17 @@ export function AddToCartButton({
         )
     }
 
-
     //Text only variant
     if (variant === "textOnly") {
         return (
-            <div className="space-y-4">
-                <Button
-                    className={`flex-1 bg-gray-900 hover:bg-gray-800 text-white ${className}`}
-                    onClick={handleAddToCart}
-                    disabled={disabled || !product?.inStock}
-                    size={size}
-                >
-                    Add to Cart
-                </Button>
-            </div>
+            <Button
+                className={`flex-1 bg-gray-900 hover:bg-gray-800 max-w-fit text-white ${className}`}
+                onClick={handleAddToCart}
+                disabled={disabled || !product || !product.inStock}
+                size={size}
+            >
+                Add to Cart
+            </Button>
         )
     }
 
@@ -175,7 +215,7 @@ export function AddToCartButton({
         <Button
             className={`bg-gray-900 hover:bg-gray-800 text-white ${className}`}
             onClick={handleAddToCart}
-            disabled={disabled || !product}
+            disabled={disabled || !product || !product.inStock}
             size={size}
         >
             <ShoppingBag className="h-4 w-4 mr-2" />
