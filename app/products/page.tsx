@@ -110,7 +110,17 @@ export default function ProductsPage() {
           return (b.rating || 0) - (a.rating || 0)
         case "newest":
           if (a.createdAt && b.createdAt) {
-            return new Date(b.createdAt.toDate()).getTime() - new Date(a.createdAt.toDate()).getTime()
+            // Handle different timestamp formats
+            const getTimestamp = (timestamp: any) => {
+              if (timestamp?.toDate) {
+                return timestamp.toDate().getTime()
+              }
+              if (timestamp?.seconds) {
+                return new Date(timestamp.seconds * 1000).getTime()
+              }
+              return new Date(timestamp).getTime()
+            }
+            return getTimestamp(b.createdAt) - getTimestamp(a.createdAt)
           }
           return 0
         default:
@@ -315,11 +325,7 @@ export default function ProductsPage() {
                               </span>
                                   )}
                                 </div>
-                                <AddToCartButton
-                                    product={product}
-                                    variant="textOnly"
-                                    disabled={!product.inStock}
-                                />
+                                <AddToCartButton product={product} variant="textOnly" disabled={!product.inStock} />
                               </div>
                             </div>
                           </CardContent>

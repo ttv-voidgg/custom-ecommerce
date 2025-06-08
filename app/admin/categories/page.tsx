@@ -20,6 +20,7 @@ interface Category {
     slug: string
     createdAt: any
     updatedAt: any
+    featured: boolean
 }
 
 type SortField = "name" | "slug" | "productCount" | "createdAt"
@@ -40,6 +41,7 @@ export default function AdminCategoriesPage() {
     const [productCounts, setProductCounts] = useState<Record<string, number>>({})
     const [sortField, setSortField] = useState<SortField>("name")
     const [sortDirection, setSortDirection] = useState<SortDirection>("asc")
+    const [featuredCount, setFeaturedCount] = useState(0)
 
     useEffect(() => {
         if (!loading && (!user || !isAdmin)) {
@@ -56,6 +58,9 @@ export default function AdminCategoriesPage() {
     useEffect(() => {
         if (categories.length > 0) {
             loadProductCounts()
+            // Count featured categories
+            const featured = categories.filter((cat) => cat.featured).length
+            setFeaturedCount(featured)
         }
     }, [categories])
 
@@ -367,6 +372,10 @@ export default function AdminCategoriesPage() {
                                 <p className="text-sm font-medium text-gray-600">Total Categories</p>
                                 <p className="text-2xl font-bold text-gray-900">{categories.length}</p>
                             </div>
+                            <div>
+                                <p className="text-sm font-medium text-gray-600">Featured Categories</p>
+                                <p className="text-2xl font-bold text-gray-900">{featuredCount}</p>
+                            </div>
                         </div>
                     </CardContent>
                 </Card>
@@ -460,7 +469,14 @@ export default function AdminCategoriesPage() {
                                         <tr key={category.id} className="border-b hover:bg-gray-50">
                                             <td className="py-4 px-4">
                                                 <div>
-                                                    <p className="font-medium text-gray-900">{category.name}</p>
+                                                    <div className="flex items-center space-x-2">
+                                                        <p className="font-medium text-gray-900">{category.name}</p>
+                                                        {category.featured && (
+                                                            <Badge variant="secondary" className="text-xs">
+                                                                Featured
+                                                            </Badge>
+                                                        )}
+                                                    </div>
                                                     {category.description && (
                                                         <p className="text-sm text-gray-500 line-clamp-1">{category.description}</p>
                                                     )}
@@ -515,6 +531,7 @@ export default function AdminCategoriesPage() {
                                 onSubmit={handleCreateCategory}
                                 onCancel={() => setShowCreateForm(false)}
                                 submitLabel="Create Category"
+                                featuredCount={featuredCount}
                             />
                         </div>
                     </div>
@@ -532,6 +549,7 @@ export default function AdminCategoriesPage() {
                                 onSubmit={handleUpdateCategory}
                                 onCancel={() => setEditingCategory(null)}
                                 submitLabel="Update Category"
+                                featuredCount={featuredCount}
                             />
                         </div>
                     </div>

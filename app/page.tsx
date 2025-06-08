@@ -12,14 +12,56 @@ import { StoreHeader } from "@/components/store-header"
 import { AddToCartButton } from "@/components/add-to-cart-button"
 import { AddToWishlistButton } from "@/components/add-to-wishlist-button"
 
+interface StoreSettings {
+  name: string
+  bannerImage: string
+  shortTagline: string
+  buttonText: string
+}
+
 export default function HomePage() {
   const { user, isAdmin } = useAuth()
   const [products, setProducts] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [categories, setCategories] = useState<any[]>([])
+  const [featuredCategories, setFeaturedCategories] = useState<any[]>([])
+  const [storeSettings, setStoreSettings] = useState<StoreSettings>({
+    name: "LUMIÈRE",
+    bannerImage: " ",
+    shortTagline: " ",
+    buttonText: "DISCOVER",
+  })
 
   useEffect(() => {
     loadProducts()
+    loadCategories()
+    loadStoreSettings()
   }, [])
+
+  const loadStoreSettings = async () => {
+    try {
+      const { db } = await import("@/lib/firebase")
+      const { doc, getDoc } = await import("firebase/firestore")
+
+      if (!db) {
+        console.error("Firestore not initialized")
+        return
+      }
+
+      const storeDoc = await getDoc(doc(db, "settings", "store"))
+      if (storeDoc.exists()) {
+        const data = storeDoc.data()
+        setStoreSettings({
+          name: data.name || "LUMIÈRE",
+          bannerImage: data.bannerImage || "",
+          shortTagline: data.shortTagline || "Timeless Elegance",
+          buttonText: data.buttonText || "DISCOVER",
+        })
+      }
+    } catch (error) {
+      console.error("Error loading store settings:", error)
+    }
+  }
 
   const loadProducts = async () => {
     try {
@@ -50,15 +92,69 @@ export default function HomePage() {
     }
   }
 
+  const loadCategories = async () => {
+    try {
+      const { db } = await import("@/lib/firebase")
+      const { collection, getDocs } = await import("firebase/firestore")
+
+      if (!db) {
+        console.error("Firestore not initialized")
+        return
+      }
+
+      // Load all categories
+      const categoriesRef = collection(db, "categories")
+      const querySnapshot = await getDocs(categoriesRef)
+      const categoriesData = querySnapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }))
+
+      setCategories(categoriesData)
+
+      // Separate featured and non-featured categories
+      const featured = categoriesData.filter((cat) => cat.featured)
+      const nonFeatured = categoriesData.filter((cat) => !cat.featured)
+
+      // Always aim for exactly 4 categories
+      const maxCategories = 4
+      let displayCategories = []
+
+      if (featured.length >= maxCategories) {
+        // If we have 4 or more featured categories, just take the first 4
+        displayCategories = featured.slice(0, maxCategories)
+      } else {
+        // Start with all featured categories
+        displayCategories = [...featured]
+
+        // Fill remaining slots with non-featured categories
+        const remainingSlots = maxCategories - featured.length
+        const shuffledNonFeatured = [...nonFeatured].sort(() => 0.5 - Math.random())
+        displayCategories = [...displayCategories, ...shuffledNonFeatured.slice(0, remainingSlots)]
+      }
+
+      // Ensure we have exactly 4 categories (or all available if less than 4 total)
+      const finalCategories = displayCategories.slice(0, Math.min(maxCategories, categoriesData.length))
+
+      setFeaturedCategories(finalCategories)
+    } catch (error) {
+      console.error("Error loading categories:", error)
+    }
+  }
+
   return (
       <div className="min-h-screen bg-white">
         {/* Minimal Header */}
         <StoreHeader />
 
-        {/* Hero - Large Image Focus */}
+        {/* Hero - Dynamic Content */}
         <section className="relative h-screen">
           <Image
-              src="/placeholder.svg?height=1080&width=1920"
+              src={
+                  storeSettings.bannerImage ||
+                  "/placeholder.svg?height=1080&width=1920&query=luxury jewelry hero banner" ||
+                  "/placeholder.svg"
+              }
               alt="Luxury jewelry collection"
               fill
               className="object-cover"
@@ -67,71 +163,41 @@ export default function HomePage() {
           <div className="absolute inset-0 bg-black/20" />
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="text-center text-white space-y-6">
-              <h1 className="text-6xl md:text-8xl font-thin tracking-widest">LUMIÈRE</h1>
-              <p className="text-lg tracking-wide opacity-90">Timeless Elegance</p>
+              <h1 className="text-6xl md:text-8xl font-thin tracking-widest">{storeSettings.name.toUpperCase()}</h1>
+              <p className="text-lg tracking-wide opacity-90">{storeSettings.shortTagline}</p>
               <Link href="/products">
                 <Button className="bg-white text-black hover:bg-gray-100 px-8 py-3 text-sm tracking-wide">
-                  DISCOVER
+                  {storeSettings.buttonText.toUpperCase()}
                 </Button>
               </Link>
             </div>
           </div>
         </section>
 
-        {/* Category Grid - Image Heavy */}
+        {/* Category Grid - Dynamic from Database */}
         <section className="py-0">
           <div className="grid grid-cols-2 lg:grid-cols-4 h-screen">
-            <Link href="/products?category=rings" className="group relative overflow-hidden">
-              <Image
-                  src="/placeholder.svg?height=600&width=400"
-                  alt="Rings"
-                  fill
-                  className="object-cover group-hover:scale-105 transition-transform duration-700"
-              />
-              <div className="absolute inset-0 bg-black/30 group-hover:bg-black/20 transition-colors" />
-              <div className="absolute bottom-8 left-8">
-                <h3 className="text-white text-2xl font-light tracking-wide">RINGS</h3>
-              </div>
-            </Link>
-
-            <Link href="/products?category=necklaces" className="group relative overflow-hidden">
-              <Image
-                  src="/placeholder.svg?height=600&width=400"
-                  alt="Necklaces"
-                  fill
-                  className="object-cover group-hover:scale-105 transition-transform duration-700"
-              />
-              <div className="absolute inset-0 bg-black/30 group-hover:bg-black/20 transition-colors" />
-              <div className="absolute bottom-8 left-8">
-                <h3 className="text-white text-2xl font-light tracking-wide">NECKLACES</h3>
-              </div>
-            </Link>
-
-            <Link href="/products?category=earrings" className="group relative overflow-hidden">
-              <Image
-                  src="/placeholder.svg?height=600&width=400"
-                  alt="Earrings"
-                  fill
-                  className="object-cover group-hover:scale-105 transition-transform duration-700"
-              />
-              <div className="absolute inset-0 bg-black/30 group-hover:bg-black/20 transition-colors" />
-              <div className="absolute bottom-8 left-8">
-                <h3 className="text-white text-2xl font-light tracking-wide">EARRINGS</h3>
-              </div>
-            </Link>
-
-            <Link href="/products?category=bracelets" className="group relative overflow-hidden">
-              <Image
-                  src="/placeholder.svg?height=600&width=400"
-                  alt="Bracelets"
-                  fill
-                  className="object-cover group-hover:scale-105 transition-transform duration-700"
-              />
-              <div className="absolute inset-0 bg-black/30 group-hover:bg-black/20 transition-colors" />
-              <div className="absolute bottom-8 left-8">
-                <h3 className="text-white text-2xl font-light tracking-wide">BRACELETS</h3>
-              </div>
-            </Link>
+            {featuredCategories.map((category, index) => (
+                <Link
+                    key={category.id}
+                    href={`/products?category=${category.slug}`}
+                    className="group relative overflow-hidden"
+                >
+                  <Image
+                      src={
+                          category.bannerImage ||
+                          `/placeholder.svg?height=600&width=400&query=${category.name || "/placeholder.svg"} jewelry category`
+                      }
+                      alt={category.name}
+                      fill
+                      className="object-cover group-hover:scale-105 transition-transform duration-700"
+                  />
+                  <div className="absolute inset-0 bg-black/30 group-hover:bg-black/20 transition-colors" />
+                  <div className="absolute bottom-8 left-8">
+                    <h3 className="text-white text-2xl font-light tracking-wide">{category.name.toUpperCase()}</h3>
+                  </div>
+                </Link>
+            ))}
           </div>
         </section>
 
@@ -251,7 +317,7 @@ export default function HomePage() {
         <footer className="bg-gray-900 text-white">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
             <div className="text-center space-y-8">
-              <h4 className="text-2xl font-thin tracking-widest">LUMIÈRE</h4>
+              <h4 className="text-2xl font-thin tracking-widest">{storeSettings.name.toUpperCase()}</h4>
               <div className="flex justify-center space-x-12 text-sm tracking-wide">
                 <Link href="/contact" className="hover:text-gray-300 transition-colors">
                   CONTACT
@@ -267,7 +333,9 @@ export default function HomePage() {
                 </Link>
               </div>
               <div className="border-t border-gray-800 pt-8">
-                <p className="text-sm text-gray-400 tracking-wide">© 2024 LUMIÈRE. ALL RIGHTS RESERVED.</p>
+                <p className="text-sm text-gray-400 tracking-wide">
+                  © 2024 {storeSettings.name.toUpperCase()}. ALL RIGHTS RESERVED.
+                </p>
               </div>
             </div>
           </div>

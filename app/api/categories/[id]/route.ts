@@ -52,7 +52,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
         }
 
         const body = await request.json()
-        const { name, description, slug } = body
+        const { name, description, slug, featured, bannerImage } = body
 
         if (!name || !slug) {
             return NextResponse.json(
@@ -94,10 +94,31 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
             )
         }
 
+        // Check featured category limit
+        if (featured) {
+            const categoriesRef = collection(db, "categories")
+            const featuredQuery = query(categoriesRef, where("featured", "==", true))
+            const featuredCategories = await getDocs(featuredQuery)
+
+            // Allow if this category is already featured, or if we're under the limit
+            const currentlyFeatured = featuredCategories.docs.find((doc) => doc.id === params.id)
+            if (!currentlyFeatured && featuredCategories.size >= 4) {
+                return NextResponse.json(
+                    {
+                        success: false,
+                        error: "Maximum of 4 categories can be featured",
+                    },
+                    { status: 400 },
+                )
+            }
+        }
+
         const updateData = {
             name,
             description: description || "",
             slug,
+            featured: featured || false,
+            bannerImage: bannerImage || "",
             updatedAt: Timestamp.now(),
         }
 

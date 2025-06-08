@@ -5,7 +5,7 @@ import type React from "react"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
-import { ArrowLeft, Save, Loader2 } from "lucide-react"
+import { ArrowLeft, Save, Loader2, Upload, X } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -20,6 +20,9 @@ interface StoreSettings {
     description: string
     currency: string
     logoUrl: string
+    bannerImage: string
+    shortTagline: string
+    buttonText: string
 }
 
 export default function AdminSettingsPage() {
@@ -32,9 +35,13 @@ export default function AdminSettingsPage() {
         description: "",
         currency: "USD",
         logoUrl: "",
+        bannerImage: "",
+        shortTagline: "",
+        buttonText: "",
     })
     const [saving, setSaving] = useState(false)
     const [uploading, setUploading] = useState(false)
+    const [uploadingBanner, setUploadingBanner] = useState(false)
     const [loadingSettings, setLoadingSettings] = useState(true)
 
     useEffect(() => {
@@ -62,6 +69,9 @@ export default function AdminSettingsPage() {
                     description: data.description || "",
                     currency: data.currency || "USD",
                     logoUrl: data.logoUrl || "",
+                    bannerImage: data.bannerImage || "",
+                    shortTagline: data.shortTagline || "",
+                    buttonText: data.buttonText || "",
                 })
             }
         } catch (error) {
@@ -112,6 +122,42 @@ export default function AdminSettingsPage() {
         }
     }
 
+    const handleBannerUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0]
+        if (!file) return
+
+        setUploadingBanner(true)
+        try {
+            const formData = new FormData()
+            formData.append("file", file)
+            formData.append("path", "/banners")
+
+            const response = await fetch("/api/files", {
+                method: "POST",
+                body: formData,
+            })
+
+            if (response.ok) {
+                const result = await response.json()
+                setSettings((prev) => ({ ...prev, bannerImage: result.url }))
+                toast({
+                    title: "Banner uploaded!",
+                    description: "Your hero banner has been uploaded successfully",
+                })
+            } else {
+                throw new Error("Upload failed")
+            }
+        } catch (error) {
+            toast({
+                title: "Upload failed",
+                description: "Failed to upload banner. Please try again.",
+                variant: "destructive",
+            })
+        } finally {
+            setUploadingBanner(false)
+        }
+    }
+
     const handleRemoveLogo = async () => {
         try {
             setSettings((prev) => ({ ...prev, logoUrl: "" }))
@@ -128,6 +174,22 @@ export default function AdminSettingsPage() {
         }
     }
 
+    const handleRemoveBanner = async () => {
+        try {
+            setSettings((prev) => ({ ...prev, bannerImage: "" }))
+            toast({
+                title: "Banner removed!",
+                description: "Your hero banner has been removed successfully",
+            })
+        } catch (error) {
+            toast({
+                title: "Error",
+                description: "Failed to remove banner. Please try again.",
+                variant: "destructive",
+            })
+        }
+    }
+
     const handleSaveSettings = async () => {
         setSaving(true)
         try {
@@ -139,6 +201,9 @@ export default function AdminSettingsPage() {
                 description: settings.description,
                 currency: settings.currency,
                 logoUrl: settings.logoUrl,
+                bannerImage: settings.bannerImage,
+                shortTagline: settings.shortTagline,
+                buttonText: settings.buttonText,
                 updatedAt: Timestamp.now(),
             })
 
@@ -230,6 +295,100 @@ export default function AdminSettingsPage() {
                                     placeholder="Describe your jewelry store"
                                     rows={3}
                                 />
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* Hero Section Settings */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Hero Section</CardTitle>
+                            <CardDescription>Customize your homepage hero section content</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <Label htmlFor="shortTagline">Short Tagline</Label>
+                                    <Input
+                                        id="shortTagline"
+                                        value={settings.shortTagline}
+                                        onChange={(e) => setSettings((prev) => ({ ...prev, shortTagline: e.target.value }))}
+                                        placeholder="e.g., Timeless Elegance"
+                                    />
+                                    <p className="text-xs text-gray-500 mt-1">Appears below your store name on the homepage</p>
+                                </div>
+
+                                <div>
+                                    <Label htmlFor="buttonText">Button Text</Label>
+                                    <Input
+                                        id="buttonText"
+                                        value={settings.buttonText}
+                                        onChange={(e) => setSettings((prev) => ({ ...prev, buttonText: e.target.value }))}
+                                        placeholder="e.g., DISCOVER"
+                                    />
+                                    <p className="text-xs text-gray-500 mt-1">Text for the main call-to-action button</p>
+                                </div>
+                            </div>
+
+                            {/* Hero Banner Image */}
+                            <div>
+                                <Label htmlFor="bannerImage">Hero Banner Image</Label>
+                                <div className="mt-2">
+                                    <div className="flex items-center justify-center w-full">
+                                        <label
+                                            htmlFor="bannerImage"
+                                            className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100"
+                                        >
+                                            <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                                                <Upload className="w-8 h-8 mb-4 text-gray-500" />
+                                                <p className="mb-2 text-sm text-gray-500">
+                                                    <span className="font-semibold">Click to upload</span> hero banner
+                                                </p>
+                                                <p className="text-xs text-gray-500">PNG, JPG or GIF (MAX. 5MB)</p>
+                                                <p className="text-xs text-gray-500">Recommended: 1920x1080px</p>
+                                            </div>
+                                            <input
+                                                id="bannerImage"
+                                                type="file"
+                                                className="hidden"
+                                                accept="image/*"
+                                                onChange={handleBannerUpload}
+                                                disabled={uploadingBanner}
+                                            />
+                                        </label>
+                                    </div>
+                                    {uploadingBanner && (
+                                        <div className="flex items-center mt-2 text-sm text-gray-600">
+                                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                            Uploading banner...
+                                        </div>
+                                    )}
+                                </div>
+
+                                {settings.bannerImage && (
+                                    <div className="mt-4">
+                                        <Label>Current Hero Banner</Label>
+                                        <div className="mt-2 relative">
+                                            <div className="relative w-full h-48 rounded-lg overflow-hidden bg-gray-100">
+                                                <Image
+                                                    src={settings.bannerImage || "/placeholder.svg"}
+                                                    alt="Hero banner"
+                                                    fill
+                                                    className="object-cover"
+                                                />
+                                            </div>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={handleRemoveBanner}
+                                                className="mt-2 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                            >
+                                                <X className="h-4 w-4 mr-2" />
+                                                Remove Banner
+                                            </Button>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </CardContent>
                     </Card>
