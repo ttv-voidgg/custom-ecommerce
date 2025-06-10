@@ -279,7 +279,9 @@ export default function FileManagerPage() {
                               ) : (
                                   <File className="h-5 w-5 text-gray-500" />
                               )}
-                              <span className="text-sm font-medium truncate">{file.name}</span>
+                              <span className="text-sm font-medium truncate" title={file.name}>
+                          {file.name.length > 20 ? `${file.name.substring(0, 20)}...` : file.name}
+                        </span>
                             </div>
                             {file.type === "file" && (
                                 <Button variant="ghost" size="sm" onClick={() => handleDeleteFile(file.name)}>

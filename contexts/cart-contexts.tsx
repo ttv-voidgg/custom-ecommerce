@@ -24,26 +24,78 @@ interface CartContextType {
 
 const CartContext = createContext<CartContextType | undefined>(undefined)
 
+// Cookie helper functions
+const setCookie = (name: string, value: string, days = 30) => {
+    const expires = new Date()
+    expires.setTime(expires.getTime() + days * 24 * 60 * 60 * 1000)
+    document.cookie = `${name}=${value};expires=${expires.toUTCString()};path=/;SameSite=Lax`
+}
+
+const getCookie = (name: string): string | null => {
+    if (typeof document === "undefined") return null
+
+    const nameEQ = name + "="
+    const ca = document.cookie.split(";")
+    for (let i = 0; i < ca.length; i++) {
+        let c = ca[i]
+        while (c.charAt(0) === " ") c = c.substring(1, c.length)
+        if (c.indexOf(nameEQ) === 0) return c.substring(nameEQ.length, c.length)
+    }
+    return null
+}
+
+const deleteCookie = (name: string) => {
+    document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;`
+}
+
 export function CartProvider({ children }: { children: ReactNode }) {
     const [items, setItems] = useState<CartItem[]>([])
+    const [isLoaded, setIsLoaded] = useState(false)
     const { toast } = useToast()
 
-    // Load cart from localStorage on mount
+    // Load cart from cookies on mount
     useEffect(() => {
-        const savedCart = localStorage.getItem("cart")
-        if (savedCart) {
-            try {
-                setItems(JSON.parse(savedCart))
-            } catch (error) {
-                console.error("Error loading cart from localStorage:", error)
+        try {
+            const savedCart = getCookie("cart")
+            if (savedCart) {
+                const parsedCart = JSON.parse(decodeURIComponent(savedCart))
+                if (Array.isArray(parsedCart)) {
+                    setItems(parsedCart)
+                }
             }
+        } catch (error) {
+            console.error("Error loading cart from cookies:", error)
+            // Clear corrupted cookie
+            deleteCookie("cart")
+        } finally {
+            setIsLoaded(true)
         }
     }, [])
 
-    // Save cart to localStorage whenever items change
+    // Save cart to cookies whenever items change (but only after initial load)
     useEffect(() => {
-        localStorage.setItem("cart", JSON.stringify(items))
-    }, [items])
+        if (isLoaded) {
+            try {
+                if (items.length > 0) {
+                    const cartData = encodeURIComponent(JSON.stringify(items))
+                    setCookie("cart", cartData, 30) // 30 days expiry
+                } else {
+                    deleteCookie("cart")
+                }
+
+                // Also save to localStorage as backup
+                localStorage.setItem("cart", JSON.stringify(items))
+            } catch (error) {
+                console.error("Error saving cart to cookies:", error)
+                // Fallback to localStorage only
+                try {
+                    localStorage.setItem("cart", JSON.stringify(items))
+                } catch (localError) {
+                    console.error("Error saving cart to localStorage:", localError)
+                }
+            }
+        }
+    }, [items, isLoaded])
 
     const addToCart = async (product: any, quantity = 1) => {
         // Validate stock before adding

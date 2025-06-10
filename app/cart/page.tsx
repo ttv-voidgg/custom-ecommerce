@@ -3,28 +3,100 @@
 import { useState, useEffect } from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { Trash2, ChevronLeft, ChevronRight, ShoppingBag, AlertCircle } from "lucide-react"
+import { Trash2, ChevronLeft, ChevronRight, ShoppingBag, AlertCircle, MapPin } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { useCart } from "@/contexts/cart-contexts"
 import { StoreHeader } from "@/components/store-header"
 import { useToast } from "@/hooks/use-toast"
+import { useLocation } from "@/hooks/use-location"
+
+interface Tax {
+    name: string
+    type: string
+    rate: number
+    amount: number
+}
+
+interface TaxCalculation {
+    taxes: Tax[]
+    totalTaxRate: number
+    totalTaxAmount: number
+    taxLocation: string
+    detectedLocation: string
+    total: number
+}
 
 export default function CartPage() {
     const { items, totalItems, totalPrice, updateQuantity, removeFromCart, clearCart } = useCart()
     const { toast } = useToast()
+    const location = useLocation()
     const [stockLevels, setStockLevels] = useState<Record<string, number>>({})
     const [loading, setLoading] = useState(true)
+    const [taxCalculation, setTaxCalculation] = useState<TaxCalculation | null>(null)
+    const [taxLoading, setTaxLoading] = useState(false)
 
-    // Tax rate and shipping cost
-    const taxRate = 0.07 // 7% tax
+    // Shipping cost
     const shippingCost = totalPrice > 100 ? 0 : 10 // Free shipping over $100
-
-    // Calculate totals
     const subtotal = totalPrice
-    const tax = subtotal * taxRate
-    const total = subtotal + tax + shippingCost
+
+    // Calculate tax when location changes or cart total changes
+    useEffect(() => {
+        if (!location.loading && subtotal > 0) {
+            calculateTax()
+        }
+    }, [location, subtotal])
+
+    const calculateTax = async () => {
+        if (subtotal <= 0) return
+
+        setTaxLoading(true)
+        try {
+            const response = await fetch("/api/tax/calculate", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    subtotal,
+                    userLocation: {
+                        country: location.country,
+                        region: location.region,
+                    },
+                }),
+            })
+
+            const data = await response.json()
+            if (data.success) {
+                setTaxCalculation(data)
+            } else {
+                console.error("Tax calculation failed:", data.error)
+                // Fallback to no tax
+                setTaxCalculation({
+                    taxes: [],
+                    totalTaxRate: 0,
+                    totalTaxAmount: 0,
+                    taxLocation: "Unknown",
+                    detectedLocation: "Unknown",
+                    total: subtotal,
+                })
+            }
+        } catch (error) {
+            console.error("Error calculating tax:", error)
+            // Fallback to no tax
+            setTaxCalculation({
+                taxes: [],
+                totalTaxRate: 0,
+                totalTaxAmount: 0,
+                taxLocation: "Unknown",
+                detectedLocation: "Unknown",
+                total: subtotal,
+            })
+        } finally {
+            setTaxLoading(false)
+        }
+    }
 
     // Fetch stock levels for all products in cart
     useEffect(() => {
@@ -102,6 +174,9 @@ export default function CartPage() {
     const handleClearCart = () => {
         clearCart()
     }
+
+    // Calculate final total
+    const finalTotal = (taxCalculation?.total || subtotal) + shippingCost
 
     // Empty cart state
     if (items.length === 0) {
@@ -264,16 +339,58 @@ export default function CartPage() {
                             <CardContent className="p-6">
                                 <h2 className="text-xl font-medium text-gray-900 mb-6">Order Summary</h2>
 
+                                {/* Location Display */}
+                                {!location.loading && taxCalculation && (
+                                    <div className="flex items-center text-sm text-gray-600 mb-4 p-3 bg-gray-50 rounded-md">
+                                        <MapPin className="h-4 w-4 mr-2" />
+                                        <div>
+                                            <div className="font-medium">{taxCalculation.taxLocation}</div>
+                                            <div className="text-xs text-gray-500">{taxCalculation.detectedLocation}</div>
+                                        </div>
+                                    </div>
+                                )}
+
                                 <div className="space-y-4">
                                     <div className="flex justify-between">
                                         <span className="text-gray-600">Subtotal</span>
                                         <span className="font-medium">${subtotal.toLocaleString()}</span>
                                     </div>
 
-                                    <div className="flex justify-between">
-                                        <span className="text-gray-600">Tax (7%)</span>
-                                        <span>${tax.toFixed(2)}</span>
-                                    </div>
+                                    {/* Individual Tax Breakdown */}
+                                    {taxLoading ? (
+                                        <div className="flex justify-between">
+                                            <span className="text-gray-600">Calculating taxes...</span>
+                                            <span>...</span>
+                                        </div>
+                                    ) : (
+                                        taxCalculation?.taxes &&
+                                        taxCalculation.taxes.length > 0 && (
+                                            <>
+                                                {taxCalculation.taxes.map((tax, index) => (
+                                                    <div key={index} className="flex justify-between">
+                            <span className="text-gray-600">
+                              {tax.name} ({(tax.rate * 100).toFixed(2)}%)
+                            </span>
+                                                        <span>${tax.amount.toFixed(2)}</span>
+                                                    </div>
+                                                ))}
+                                                {taxCalculation.taxes.length > 1 && (
+                                                    <div className="flex justify-between text-sm font-medium border-t pt-2">
+                                                        <span className="text-gray-700">Total Tax</span>
+                                                        <span>${taxCalculation.totalTaxAmount.toFixed(2)}</span>
+                                                    </div>
+                                                )}
+                                            </>
+                                        )
+                                    )}
+
+                                    {/* No tax message */}
+                                    {!taxLoading && taxCalculation?.taxes && taxCalculation.taxes.length === 0 && (
+                                        <div className="flex justify-between">
+                                            <span className="text-gray-600">Tax</span>
+                                            <span className="text-green-600">Tax Free</span>
+                                        </div>
+                                    )}
 
                                     <div className="flex justify-between">
                                         <span className="text-gray-600">Shipping</span>
@@ -284,7 +401,7 @@ export default function CartPage() {
 
                                     <div className="flex justify-between text-lg font-medium">
                                         <span>Total</span>
-                                        <span>${total.toFixed(2)}</span>
+                                        <span>${finalTotal.toFixed(2)}</span>
                                     </div>
 
                                     {subtotal < 100 && (

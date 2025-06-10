@@ -27,8 +27,8 @@ export default function HomePage() {
   const [featuredCategories, setFeaturedCategories] = useState<any[]>([])
   const [storeSettings, setStoreSettings] = useState<StoreSettings>({
     name: "LUMIÈRE",
-    bannerImage: " ",
-    shortTagline: " ",
+    bannerImage: "",
+    shortTagline: "Timeless Elegance",
     buttonText: "DISCOVER",
   })
 
