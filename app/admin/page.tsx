@@ -266,6 +266,11 @@ export default function AdminDashboard() {
                     Manage Categories
                   </Button>
                 </Link>
+                <Link href="/admin/shipping" className="block">
+                  <Button variant="outline" className="w-full justify-start">
+                    Shipping Settings
+                  </Button>
+                </Link>
                 <Link href="/admin/orders" className="block">
                   <Button variant="outline" className="w-full justify-start">
                     View Orders

@@ -1,6 +1,6 @@
-import { initializeApp, getApps, getApp } from "firebase/app"
-import { getAuth } from "firebase/auth"
-import { getFirestore } from "firebase/firestore"
+import { initializeApp, getApps, getApp, FirebaseApp} from "firebase/app"
+import {Auth, getAuth} from "firebase/auth"
+import {Firestore, getFirestore} from "firebase/firestore"
 
 // Validate Firebase configuration
 const requiredEnvVars = [
@@ -28,7 +28,7 @@ const firebaseConfig = {
 }
 
 // Initialize Firebase app
-let app
+let app: FirebaseApp | undefined
 try {
   app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp()
   console.log("Firebase app initialized successfully")
@@ -38,8 +38,8 @@ try {
 }
 
 // Initialize Firebase services
-let auth
-let db
+let auth: Auth
+let db: Firestore
 
 try {
   // Initialize Auth first

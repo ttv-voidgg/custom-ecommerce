@@ -3,99 +3,130 @@
 import { useState, useEffect } from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { Trash2, ChevronLeft, ChevronRight, ShoppingBag, AlertCircle, MapPin } from "lucide-react"
+import { Trash2, ChevronLeft, ChevronRight, ShoppingBag, AlertCircle, MapPin, Plus, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { useCart } from "@/contexts/cart-contexts"
 import { StoreHeader } from "@/components/store-header"
 import { useToast } from "@/hooks/use-toast"
-import { useLocation } from "@/hooks/use-location"
+import { ShippingCalculator, getShippingSettings, type CalculatedShippingOption } from "@/lib/shipping-calculator"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Label } from "@/components/ui/label"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { AddressForm } from "@/components/customer/address-form"
+import { onAuthStateChanged } from "firebase/auth"
+import { auth } from "@/lib/firebase"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
-interface Tax {
-    name: string
-    type: string
-    rate: number
-    amount: number
-}
-
-interface TaxCalculation {
-    taxes: Tax[]
-    totalTaxRate: number
-    totalTaxAmount: number
-    taxLocation: string
-    detectedLocation: string
-    total: number
+interface Address {
+    id: string
+    firstName: string
+    lastName: string
+    address1: string
+    address2?: string
+    city: string
+    state: string
+    postalCode: string
+    country: string
+    phone?: string
+    isDefault: boolean
 }
 
 export default function CartPage() {
     const { items, totalItems, totalPrice, updateQuantity, removeFromCart, clearCart } = useCart()
     const { toast } = useToast()
-    const location = useLocation()
+    const [user, setUser] = useState<any>(null)
+    const [authLoading, setAuthLoading] = useState(true)
     const [stockLevels, setStockLevels] = useState<Record<string, number>>({})
     const [loading, setLoading] = useState(true)
-    const [taxCalculation, setTaxCalculation] = useState<TaxCalculation | null>(null)
-    const [taxLoading, setTaxLoading] = useState(false)
+    const [shippingOptions, setShippingOptions] = useState<CalculatedShippingOption[]>([])
+    const [selectedShipping, setSelectedShipping] = useState<CalculatedShippingOption | null>(null)
+    const [addresses, setAddresses] = useState<Address[]>([])
+    const [selectedAddress, setSelectedAddress] = useState<Address | null>(null)
+    const [loadingAddresses, setLoadingAddresses] = useState(false)
+    const [loadingShipping, setLoadingShipping] = useState(false)
+    const [isAddAddressOpen, setIsAddAddressOpen] = useState(false)
+    const [addressError, setAddressError] = useState<string | null>(null)
 
-    // Shipping cost
-    const shippingCost = totalPrice > 100 ? 0 : 10 // Free shipping over $100
+    // Tax rate
+    const taxRate = 0.07 // 7% tax
+
+    // Calculate totals
     const subtotal = totalPrice
+    const tax = subtotal * taxRate
+    const shippingCost = selectedShipping?.price || 0
+    const total = subtotal + tax + shippingCost
 
-    // Calculate tax when location changes or cart total changes
+    // Auth state listener - exactly like addresses page
     useEffect(() => {
-        if (!location.loading && subtotal > 0) {
-            calculateTax()
+        const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+            console.log("Auth state changed:", firebaseUser?.uid)
+            setUser(firebaseUser)
+            setAuthLoading(false)
+        })
+
+        return () => unsubscribe()
+    }, [])
+
+    // Fetch user's addresses - with enhanced error logging
+    async function fetchAddresses() {
+        if (!user?.uid) {
+            setLoadingAddresses(false)
+            return
         }
-    }, [location, subtotal])
 
-    const calculateTax = async () => {
-        if (subtotal <= 0) return
-
-        setTaxLoading(true)
+        setLoadingAddresses(true)
         try {
-            const response = await fetch("/api/tax/calculate", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                    subtotal,
-                    userLocation: {
-                        country: location.country,
-                        region: location.region,
-                    },
-                }),
-            })
+            console.log("Fetching addresses for user:", user.uid)
 
-            const data = await response.json()
-            if (data.success) {
-                setTaxCalculation(data)
-            } else {
-                console.error("Tax calculation failed:", data.error)
-                // Fallback to no tax
-                setTaxCalculation({
-                    taxes: [],
-                    totalTaxRate: 0,
-                    totalTaxAmount: 0,
-                    taxLocation: "Unknown",
-                    detectedLocation: "Unknown",
-                    total: subtotal,
-                })
+            const { db } = await import("@/lib/firebase")
+            const { collection, query, where, getDocs } = await import("firebase/firestore")
+
+            if (!db) {
+                console.error("Database not initialized")
+                setLoadingAddresses(false)
+                return
+            }
+
+            const addressesRef = collection(db, "addresses")
+            const q = query(addressesRef, where("userId", "==", user.uid))
+            const querySnapshot = await getDocs(q)
+
+            console.log("Found addresses:", querySnapshot.size)
+
+            const addressesData = querySnapshot.docs.map((doc) => {
+                const data = doc.data()
+                console.log("Address data:", data)
+                return {
+                    id: doc.id,
+                    ...data,
+                }
+            }) as Address[]
+
+            setAddresses(addressesData)
+
+            // Auto-select default address
+            const defaultAddress = addressesData.find((addr) => addr.isDefault)
+            if (defaultAddress && !selectedAddress) {
+                setSelectedAddress(defaultAddress)
             }
         } catch (error) {
-            console.error("Error calculating tax:", error)
-            // Fallback to no tax
-            setTaxCalculation({
-                taxes: [],
-                totalTaxRate: 0,
-                totalTaxAmount: 0,
-                taxLocation: "Unknown",
-                detectedLocation: "Unknown",
-                total: subtotal,
+            console.error("Error fetching addresses:", error)
+            toast({
+                title: "Error",
+                description: "Failed to load addresses. Please try again.",
+                variant: "destructive",
             })
         } finally {
-            setTaxLoading(false)
+            setLoadingAddresses(false)
         }
+    }
+
+    // Retry function for address loading
+    const retryAddressFetch = () => {
+        setAddressError(null)
+        fetchAddresses()
     }
 
     // Fetch stock levels for all products in cart
@@ -143,6 +174,17 @@ export default function CartPage() {
         fetchStockLevels()
     }, [items, toast])
 
+    // Fetch addresses when user is available - exactly like addresses page
+    useEffect(() => {
+        if (user?.uid) {
+            console.log("User available, fetching addresses for:", user.uid)
+            fetchAddresses()
+        } else {
+            console.log("No user available, skipping address fetch")
+            setLoadingAddresses(false)
+        }
+    }, [user?.uid])
+
     // Handle quantity changes
     const handleQuantityChange = (productId: string, newQuantity: number) => {
         const stockLimit = stockLevels[productId] || 0
@@ -175,8 +217,56 @@ export default function CartPage() {
         clearCart()
     }
 
-    // Calculate final total
-    const finalTotal = (taxCalculation?.total || subtotal) + shippingCost
+    const calculateShipping = async () => {
+        if (items.length === 0 || !selectedAddress) return
+
+        setLoadingShipping(true)
+        try {
+            const settings = await getShippingSettings()
+            if (!settings) {
+                console.error("No shipping settings found")
+                return
+            }
+
+            const calculator = new ShippingCalculator(settings)
+            const options = await calculator.calculateShipping(
+                items.map((item) => ({
+                    id: item.id,
+                    name: item.name,
+                    price: item.price,
+                    quantity: item.quantity,
+                    weight: 0.5, // Default weight in kg
+                })),
+                {
+                    country: selectedAddress.country,
+                    state: selectedAddress.state,
+                    city: selectedAddress.city,
+                    postalCode: selectedAddress.postalCode,
+                },
+                subtotal,
+            )
+
+            setShippingOptions(options)
+
+            // Auto-select the cheapest option
+            if (options.length > 0 && !selectedShipping) {
+                setSelectedShipping(options[0])
+            }
+        } catch (error) {
+            console.error("Error calculating shipping:", error)
+            toast({
+                title: "Error",
+                description: "Could not calculate shipping rates",
+                variant: "destructive",
+            })
+        } finally {
+            setLoadingShipping(false)
+        }
+    }
+
+    useEffect(() => {
+        calculateShipping()
+    }, [items, selectedAddress, subtotal])
 
     // Empty cart state
     if (items.length === 0) {
@@ -339,58 +429,194 @@ export default function CartPage() {
                             <CardContent className="p-6">
                                 <h2 className="text-xl font-medium text-gray-900 mb-6">Order Summary</h2>
 
-                                {/* Location Display */}
-                                {!location.loading && taxCalculation && (
-                                    <div className="flex items-center text-sm text-gray-600 mb-4 p-3 bg-gray-50 rounded-md">
-                                        <MapPin className="h-4 w-4 mr-2" />
-                                        <div>
-                                            <div className="font-medium">{taxCalculation.taxLocation}</div>
-                                            <div className="text-xs text-gray-500">{taxCalculation.detectedLocation}</div>
-                                        </div>
-                                    </div>
-                                )}
-
                                 <div className="space-y-4">
+                                    {/* Shipping Address Selection */}
+                                    <div>
+                                        <Label className="text-sm font-medium mb-2 block">Shipping Address</Label>
+                                        {authLoading ? (
+                                            <div className="text-sm text-gray-500">Loading...</div>
+                                        ) : !user ? (
+                                            <div className="text-sm text-gray-500 p-3 border border-gray-200 rounded-lg">
+                                                <Link href="/auth" className="text-blue-600 hover:text-blue-800">
+                                                    Sign in
+                                                </Link>{" "}
+                                                to use saved addresses or continue as guest
+                                            </div>
+                                        ) : loadingAddresses ? (
+                                            <div className="text-sm text-gray-500">Loading addresses...</div>
+                                        ) : addressError ? (
+                                            <Alert variant="destructive" className="mb-4">
+                                                <AlertCircle className="h-4 w-4" />
+                                                <AlertTitle>Error loading addresses</AlertTitle>
+                                                <AlertDescription className="mt-2">
+                                                    {addressError}
+                                                    <Button variant="outline" size="sm" onClick={retryAddressFetch} className="mt-2 w-full">
+                                                        <RefreshCw className="mr-2 h-4 w-4" />
+                                                        Retry
+                                                    </Button>
+                                                </AlertDescription>
+                                            </Alert>
+                                        ) : addresses.length === 0 ? (
+                                            <div className="space-y-2">
+                                                <div className="text-sm text-gray-500 p-3 border border-gray-200 rounded-lg text-center">
+                                                    <MapPin className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                                                    <p>No saved addresses</p>
+                                                </div>
+                                                <Dialog open={isAddAddressOpen} onOpenChange={setIsAddAddressOpen}>
+                                                    <DialogTrigger asChild>
+                                                        <Button variant="outline" className="w-full">
+                                                            <Plus className="h-4 w-4 mr-2" />
+                                                            Add Address
+                                                        </Button>
+                                                    </DialogTrigger>
+                                                    <DialogContent className="sm:max-w-[550px]">
+                                                        <DialogHeader>
+                                                            <DialogTitle>Add Shipping Address</DialogTitle>
+                                                        </DialogHeader>
+                                                        <AddressForm
+                                                            userId={user.uid}
+                                                            onSuccess={() => {
+                                                                fetchAddresses()
+                                                                setIsAddAddressOpen(false)
+                                                            }}
+                                                            isDefault={true}
+                                                        />
+                                                    </DialogContent>
+                                                </Dialog>
+                                            </div>
+                                        ) : (
+                                            <div className="space-y-2">
+                                                <Select
+                                                    value={selectedAddress?.id || ""}
+                                                    onValueChange={(value) => {
+                                                        const address = addresses.find((addr) => addr.id === value)
+                                                        setSelectedAddress(address || null)
+                                                    }}
+                                                >
+                                                    <SelectTrigger>
+                                                        <SelectValue placeholder="Select shipping address" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {addresses.map((address) => (
+                                                            <SelectItem key={address.id} value={address.id}>
+                                                                <div className="flex items-center">
+                                                                    <div>
+                                                                        <div className="font-medium">
+                                                                            {address.firstName} {address.lastName}
+                                                                            {address.isDefault && (
+                                                                                <span className="ml-2 text-xs bg-gray-100 px-2 py-1 rounded">Default</span>
+                                                                            )}
+                                                                        </div>
+                                                                        <div className="text-sm text-gray-500">
+                                                                            {address.address1}, {address.city}, {address.state} {address.postalCode}
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                                <Dialog open={isAddAddressOpen} onOpenChange={setIsAddAddressOpen}>
+                                                    <DialogTrigger asChild>
+                                                        <Button variant="outline" size="sm" className="w-full">
+                                                            <Plus className="h-4 w-4 mr-2" />
+                                                            Add New Address
+                                                        </Button>
+                                                    </DialogTrigger>
+                                                    <DialogContent className="sm:max-w-[550px]">
+                                                        <DialogHeader>
+                                                            <DialogTitle>Add New Address</DialogTitle>
+                                                        </DialogHeader>
+                                                        <AddressForm
+                                                            userId={user.uid}
+                                                            onSuccess={() => {
+                                                                fetchAddresses()
+                                                                setIsAddAddressOpen(false)
+                                                            }}
+                                                            isDefault={addresses.length === 0}
+                                                        />
+                                                    </DialogContent>
+                                                </Dialog>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Selected Address Display */}
+                                    {selectedAddress && (
+                                        <div className="p-3 bg-gray-50 rounded-lg border">
+                                            <div className="text-sm">
+                                                <div className="font-medium">
+                                                    {selectedAddress.firstName} {selectedAddress.lastName}
+                                                </div>
+                                                <div className="text-gray-600">
+                                                    {selectedAddress.address1}
+                                                    {selectedAddress.address2 && <>, {selectedAddress.address2}</>}
+                                                </div>
+                                                <div className="text-gray-600">
+                                                    {selectedAddress.city}, {selectedAddress.state} {selectedAddress.postalCode}
+                                                </div>
+                                                <div className="text-gray-600">{selectedAddress.country}</div>
+                                                {selectedAddress.phone && <div className="text-gray-600">Phone: {selectedAddress.phone}</div>}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Shipping Method Selection */}
+                                    {selectedAddress && (
+                                        <div>
+                                            <Label className="text-sm font-medium mb-2 block">Shipping Method</Label>
+                                            {loadingShipping ? (
+                                                <div className="text-sm text-gray-500">Calculating shipping rates...</div>
+                                            ) : shippingOptions.length > 0 ? (
+                                                <div className="space-y-2">
+                                                    {shippingOptions.map((option) => (
+                                                        <div
+                                                            key={option.id}
+                                                            className={`p-3 border rounded-lg cursor-pointer transition-colors ${
+                                                                selectedShipping?.id === option.id
+                                                                    ? "border-gray-900 bg-gray-50"
+                                                                    : "border-gray-200 hover:border-gray-300"
+                                                            }`}
+                                                            onClick={() => setSelectedShipping(option)}
+                                                        >
+                                                            <div className="flex justify-between items-start">
+                                                                <div>
+                                                                    <div className="font-medium">{option.name}</div>
+                                                                    {option.description && (
+                                                                        <div className="text-xs text-gray-500">{option.description}</div>
+                                                                    )}
+                                                                    {option.estimatedDays && (
+                                                                        <div className="text-xs text-gray-500">
+                                                                            {option.estimatedDays.min === option.estimatedDays.max
+                                                                                ? `${option.estimatedDays.min} day${option.estimatedDays.min !== 1 ? "s" : ""}`
+                                                                                : `${option.estimatedDays.min}-${option.estimatedDays.max} days`}
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                                <div className="font-medium">
+                                                                    {option.price === 0 ? "Free" : `$${option.price.toFixed(2)}`}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <div className="text-sm text-gray-500">No shipping options available</div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    <Separator />
+
                                     <div className="flex justify-between">
                                         <span className="text-gray-600">Subtotal</span>
                                         <span className="font-medium">${subtotal.toLocaleString()}</span>
                                     </div>
 
-                                    {/* Individual Tax Breakdown */}
-                                    {taxLoading ? (
-                                        <div className="flex justify-between">
-                                            <span className="text-gray-600">Calculating taxes...</span>
-                                            <span>...</span>
-                                        </div>
-                                    ) : (
-                                        taxCalculation?.taxes &&
-                                        taxCalculation.taxes.length > 0 && (
-                                            <>
-                                                {taxCalculation.taxes.map((tax, index) => (
-                                                    <div key={index} className="flex justify-between">
-                            <span className="text-gray-600">
-                              {tax.name} ({(tax.rate * 100).toFixed(2)}%)
-                            </span>
-                                                        <span>${tax.amount.toFixed(2)}</span>
-                                                    </div>
-                                                ))}
-                                                {taxCalculation.taxes.length > 1 && (
-                                                    <div className="flex justify-between text-sm font-medium border-t pt-2">
-                                                        <span className="text-gray-700">Total Tax</span>
-                                                        <span>${taxCalculation.totalTaxAmount.toFixed(2)}</span>
-                                                    </div>
-                                                )}
-                                            </>
-                                        )
-                                    )}
-
-                                    {/* No tax message */}
-                                    {!taxLoading && taxCalculation?.taxes && taxCalculation.taxes.length === 0 && (
-                                        <div className="flex justify-between">
-                                            <span className="text-gray-600">Tax</span>
-                                            <span className="text-green-600">Tax Free</span>
-                                        </div>
-                                    )}
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-600">Tax (7%)</span>
+                                        <span>${tax.toFixed(2)}</span>
+                                    </div>
 
                                     <div className="flex justify-between">
                                         <span className="text-gray-600">Shipping</span>
@@ -401,18 +627,17 @@ export default function CartPage() {
 
                                     <div className="flex justify-between text-lg font-medium">
                                         <span>Total</span>
-                                        <span>${finalTotal.toFixed(2)}</span>
+                                        <span>${total.toFixed(2)}</span>
                                     </div>
-
-                                    {subtotal < 100 && (
-                                        <div className="text-sm text-gray-600 mt-2">
-                                            Add ${(100 - subtotal).toFixed(2)} more to qualify for free shipping
-                                        </div>
-                                    )}
                                 </div>
                             </CardContent>
                             <CardFooter className="bg-gray-50 p-6">
-                                <Button className="w-full bg-gray-900 hover:bg-gray-800 text-white">Proceed to Checkout</Button>
+                                <Button
+                                    className="w-full bg-gray-900 hover:bg-gray-800 text-white"
+                                    disabled={!selectedAddress || !selectedShipping}
+                                >
+                                    Proceed to Checkout
+                                </Button>
                             </CardFooter>
                         </Card>
 
