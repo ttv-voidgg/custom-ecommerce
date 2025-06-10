@@ -9,8 +9,26 @@ import { Toaster } from "@/components/ui/toaster"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-    title: "Lumière - Luxury Jewelry",
+    title: "Jewellery Store - Luxury Jewelry",
     description: "Timeless elegance in every piece",
+    openGraph: {
+        title: "Jewellery Store - Luxury Jewelry",
+        description: "Timeless elegance in every piece",
+        images: [
+            {
+                url: "https://ecommerce.eejay.me/ecommerce.png", // Replace with your actual image URL
+                width: 1200,
+                height: 630,
+                alt: "Jewellery Store Preview",
+            },
+        ],
+    },
+    twitter: {
+        card: "summary_large_image",
+        title: "Jewellery Store - Luxury Jewelry",
+        description: "Timeless elegance in every piece",
+        images: ["https://ecommerce.eejay.me/ecommerce.png"],
+    },
 }
 
 export default function RootLayout({
