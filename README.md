@@ -52,21 +52,24 @@ A complete, modern jewelry ecommerce platform built with Next.js 14, Firebase, a
 ### Installation
 
 1. **Clone the repository**
-   \`\`\`bash
+   ```
+   bash
    git clone <your-repo-url>
    cd jewelry-ecommerce
-   \`\`\`
+   ```
 
 2. **Install dependencies**
-   \`\`\`bash
+   ```
+   bash
    npm install
-   \`\`\`
+   ```
 
 3. **Set up environment variables**
    Copy the example environment file and configure your settings:
-   \`\`\`bash
+```
+   bash
    cp .env.example .env.local
-   \`\`\`
+```
 
 4. **Configure Firebase**
    - Create a new Firebase project at https://console.firebase.google.com
@@ -76,19 +79,21 @@ A complete, modern jewelry ecommerce platform built with Next.js 14, Firebase, a
    - Update `.env.local` with your Firebase credentials
 
 5. **Run the setup wizard**
-   \`\`\`bash
+   ```
+   bash
    npm run dev
-   \`\`\`
+  ```
    Navigate to `http://localhost:3000/setup` to initialize your store
 
 6. **Start development**
-   \`\`\`bash
-   npm run dev
-   \`\`\`
+ ```
+bash
+npm run dev
+```
 
 ## 📁 Project Structure
 
-\`\`\`
+```
 jewelry-ecommerce/
 ├── app/                          # Next.js App Router
 │   ├── admin/                    # Admin dashboard pages
@@ -103,7 +108,7 @@ jewelry-ecommerce/
 ├── lib/                          # Utility functions and configurations
 ├── public/                       # Static assets
 └── styles/                       # Global styles
-\`\`\`
+```
 
 ## 🔧 Configuration
 
@@ -111,7 +116,8 @@ jewelry-ecommerce/
 
 Create a `.env.local` file with the following variables:
 
-\`\`\`env
+```
+env
 # Firebase Configuration
 NEXT_PUBLIC_FIREBASE_API_KEY=your_api_key
 NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
@@ -129,7 +135,7 @@ SFTP_PORT=22
 SFTP_USERNAME=your_username
 SFTP_PASSWORD=base64_encoded_password
 SFTP_BASE_URL=https://your.cdn.com
-\`\`\`
+```
 
 ### Firebase Setup
 
@@ -157,7 +163,8 @@ SFTP_BASE_URL=https://your.cdn.com
 
 Add these rules to your Firestore database:
 
-\`\`\`javascript
+```
+javascript
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -190,19 +197,20 @@ service cloud.firestore {
     }
   }
 }
-\`\`\`
+```
 
 ## 🛠 Development
 
 ### Available Scripts
 
-\`\`\`bash
+```
+bash
 npm run dev          # Start development server
 npm run build        # Build for production
 npm run start        # Start production server
 npm run lint         # Run ESLint
 npm run type-check   # Run TypeScript checks
-\`\`\`
+```
 
 ### Adding New Features
 
@@ -395,7 +403,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Icons from [Lucide React](https://lucide.dev/)
 - Styling with [Tailwind CSS](https://tailwindcss.com/)
 - Database and auth with [Firebase](https://firebase.google.com/)
-\`\`\`
+```
 
 ```plaintext file=".env.example"
 # Firebase Configuration
