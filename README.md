@@ -1,3 +1,16 @@
+---
+title: Lumière - A Luxury Jewelry Ecommerce Platform
+description: A complete, modern jewelry ecommerce platform built with Next.js 14, Firebase, and Tailwind CSS. Features a sophisticated admin panel, file management system, and elegant storefront designed specifically for luxury jewelry retailers.
+date: 2025-06-07
+image: https://ecommerce.eejay.me/ecommerce.png 
+site: https://ecommerce.eejay.me/
+category: Development
+author:
+ name: Juan Carlos de Borja
+ role: Developer and Author
+ avatar: https://github.com/ttv-voidgg.png  
+---
+
 # Lumière - Luxury Jewelry Ecommerce Platform
 
 A complete, modern jewelry ecommerce platform built with Next.js 14, Firebase, and Tailwind CSS. Features a sophisticated admin panel, file management system, and elegant storefront designed specifically for luxury jewelry retailers.
